@@ -44,35 +44,79 @@ jobs:
             -p:Version=${{ inputs.version }} `
             -p:FileVersion=${{ inputs.version }}.0 `
             -o "${{ github.workspace }}\publish"
+        shell: pwsh
 
-      # Download Windows App Runtime bootstrapper into publish dir
-      # so the NSIS installer can run it silently
+      # Download Windows App Runtime bootstrapper into publish dir so
+      # the NSIS installer can run it silently on target machines.
       - name: Download Windows App Runtime bootstrapper
         run: |
-          $url = "https://aka.ms/windowsappruntimeinstall/1.5/x64"
-          Invoke-WebRequest -Uri $url -OutFile "${{ github.workspace }}\publish\WindowsAppRuntimeInstall.exe"
+          Invoke-WebRequest `
+            -Uri "https://aka.ms/windowsappruntimeinstall/1.5/x64" `
+            -OutFile "${{ github.workspace }}\publish\WindowsAppRuntimeInstall.exe"
         shell: pwsh
 
-      # Optional: code-sign the published exe
-      # Requires secrets: WINDOWS_CERT_PFX (base64-encoded PFX), WINDOWS_CERT_PASSWORD
-      - name: Sign published executable
-        if: ${{ secrets.WINDOWS_CERT_PFX != '' }}
+      # ── Code signing ──────────────────────────────────────────────────────
+      # Runs only when WINDOWS_CERT_PFX secret is set.
+      # See SIGNING.md for how to generate and export a PFX certificate.
+
+      - name: Locate signtool.exe
+        if: ${{ env.WINDOWS_CERT_PFX != '' }}
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+        id: signtool
         run: |
-          $cert = [System.Convert]::FromBase64String("${{ secrets.WINDOWS_CERT_PFX }}")
-          $certPath = "${{ runner.temp }}\cert.pfx"
-          [IO.File]::WriteAllBytes($certPath, $cert)
-          $signtool = "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
-          & $signtool sign /fd SHA256 /p "${{ secrets.WINDOWS_CERT_PASSWORD }}" `
-            /f $certPath /tr "http://timestamp.digicert.com" /td SHA256 `
+          # Search all installed Windows SDK versions; pick the newest x64 signtool.
+          $signtool = Get-ChildItem `
+            -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
+            -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match "x64" } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) { throw "signtool.exe not found" }
+          echo "path=$signtool" >> $env:GITHUB_OUTPUT
+          Write-Host "signtool: $signtool"
+        shell: pwsh
+
+      - name: Import PFX certificate
+        if: ${{ env.WINDOWS_CERT_PFX != '' }}
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        id: cert
+        run: |
+          $certPath = "${{ runner.temp }}\baumagent.pfx"
+          [IO.File]::WriteAllBytes(
+            $certPath,
+            [Convert]::FromBase64String($env:WINDOWS_CERT_PFX)
+          )
+          echo "path=$certPath" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Sign published executable
+        if: ${{ env.WINDOWS_CERT_PFX != '' }}
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          & "${{ steps.signtool.outputs.path }}" sign `
+            /fd SHA256 `
+            /f "${{ steps.cert.outputs.path }}" `
+            /p "$env:WINDOWS_CERT_PASSWORD" `
+            /tr "http://timestamp.digicert.com" /td SHA256 `
+            /d "BaumAgent" `
+            "${{ github.workspace }}\publish\BaumAgentClient.exe"
+          # Verify
+          & "${{ steps.signtool.outputs.path }}" verify /pa `
             "${{ github.workspace }}\publish\BaumAgentClient.exe"
         shell: pwsh
+
+      # ── NSIS installer ────────────────────────────────────────────────────
 
       - name: Install NSIS
         run: choco install nsis --no-progress -y
 
       - name: Build NSIS installer
         run: |
-          # Copy publish output to installer working directory
           Copy-Item -Recurse "${{ github.workspace }}\publish" `
             "${{ github.workspace }}\clients\windows\installer\publish"
 
@@ -80,22 +124,27 @@ jobs:
             /DVERSION=${{ inputs.version }} `
             "${{ github.workspace }}\clients\windows\installer\installer.nsi"
 
-          # Move output to workspace root for upload
           Move-Item "BaumAgent-Setup-${{ inputs.version }}.exe" "${{ github.workspace }}\"
         shell: pwsh
 
-      # Optional: sign the installer too
       - name: Sign installer
-        if: ${{ secrets.WINDOWS_CERT_PFX != '' }}
+        if: ${{ env.WINDOWS_CERT_PFX != '' }}
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         run: |
-          $cert = [System.Convert]::FromBase64String("${{ secrets.WINDOWS_CERT_PFX }}")
-          $certPath = "${{ runner.temp }}\cert.pfx"
-          [IO.File]::WriteAllBytes($certPath, $cert)
-          $signtool = "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
-          & $signtool sign /fd SHA256 /p "${{ secrets.WINDOWS_CERT_PASSWORD }}" `
-            /f $certPath /tr "http://timestamp.digicert.com" /td SHA256 `
+          & "${{ steps.signtool.outputs.path }}" sign `
+            /fd SHA256 `
+            /f "${{ steps.cert.outputs.path }}" `
+            /p "$env:WINDOWS_CERT_PASSWORD" `
+            /tr "http://timestamp.digicert.com" /td SHA256 `
+            /d "BaumAgent Installer" `
+            "${{ github.workspace }}\BaumAgent-Setup-${{ inputs.version }}.exe"
+          & "${{ steps.signtool.outputs.path }}" verify /pa `
             "${{ github.workspace }}\BaumAgent-Setup-${{ inputs.version }}.exe"
         shell: pwsh
+
+      # ── Upload ────────────────────────────────────────────────────────────
 
       - name: Upload installer to release
         if: ${{ inputs.upload_url != '' }}

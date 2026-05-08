@@ -1,0 +1,15 @@
+# Copy this file to key.properties and fill in your values.
+# key.properties is gitignored — never commit it.
+#
+# Generate a keystore:
+#   keytool -genkeypair -v -keystore baumagent.jks -keyalg RSA -keysize 2048 \
+#           -validity 10000 -alias baumagent
+#
+# Then base64-encode it for CI:
+#   base64 -i baumagent.jks | pbcopy     # macOS
+#   certutil -encode baumagent.jks tmp && findstr /v CERTIFICATE tmp | clip  # Windows
+#
+storePassword=changeme
+keyPassword=changeme
+keyAlias=baumagent
+storeFile=keystore.jks

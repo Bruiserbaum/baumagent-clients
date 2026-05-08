@@ -44,7 +44,16 @@ codesign --force --deep \
     --sign "$SIGN_IDENTITY" \
     --entitlements "$SCRIPT_DIR/build/BaumAgent.entitlements" \
     --options runtime \
+    --timestamp \
     "$APP_BUNDLE"
+
+# Verify (skip spctl check for ad-hoc since it won't pass Gatekeeper)
+codesign --verify --deep --strict "$APP_BUNDLE"
+if [ "$SIGN_IDENTITY" != "-" ]; then
+    spctl --assess --type exec --verbose "$APP_BUNDLE" \
+        && echo "✔ Gatekeeper check passed" \
+        || echo "::warning::Gatekeeper check failed — the app may need notarisation"
+fi
 
 echo "✔ Signed: $APP_BUNDLE"
 

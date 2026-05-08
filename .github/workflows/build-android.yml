@@ -45,27 +45,31 @@ jobs:
       # Decode keystore from GitHub secret (base64-encoded .jks file)
       # Required secrets: ANDROID_KEYSTORE, ANDROID_KEY_ALIAS,
       #                   ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD
+      # ── Signing ────────────────────────────────────────────────────────────
+      # Required secrets: ANDROID_KEYSTORE (base64 .jks), ANDROID_KEY_ALIAS,
+      #                   ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD
+      # See SIGNING.md for how to generate a keystore and encode it.
+
       - name: Decode keystore
         if: ${{ env.ANDROID_KEYSTORE != '' }}
         env:
           ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
         run: |
-          echo "$ANDROID_KEYSTORE" | base64 --decode \
+          printf '%s' "$ANDROID_KEYSTORE" | base64 --decode \
             > clients/android/baumagent/android/app/keystore.jks
+          echo "Keystore written: $(wc -c < clients/android/baumagent/android/app/keystore.jks) bytes"
 
-      - name: Create key.properties
+      - name: Write key.properties
         if: ${{ env.ANDROID_KEY_ALIAS != '' }}
         env:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: |
-          cat > clients/android/baumagent/android/key.properties <<EOF
-          storePassword=$ANDROID_STORE_PASSWORD
-          keyPassword=$ANDROID_KEY_PASSWORD
-          keyAlias=$ANDROID_KEY_ALIAS
-          storeFile=keystore.jks
-          EOF
+          # No leading whitespace — property parser is whitespace-sensitive
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=keystore.jks\n' \
+            "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" \
+            > clients/android/baumagent/android/key.properties
 
       - name: Build release APK
         working-directory: clients/android/baumagent

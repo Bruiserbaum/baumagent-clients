@@ -5,6 +5,15 @@ plugins {
     id "com.google.gms.google-services"
 }
 
+// Load keystore credentials from android/key.properties (not committed to git).
+// In CI the file is written by the build workflow from GitHub secrets.
+// For local development copy android/key.properties.example and fill in your values.
+def keystoreProps = new Properties()
+def keystorePropsFile = rootProject.file("key.properties")
+if (keystorePropsFile.exists()) {
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+}
+
 android {
     namespace "com.baumagent.client"
     compileSdk flutter.compileSdkVersion
@@ -19,6 +28,15 @@ android {
         jvmTarget = '1.8'
     }
 
+    signingConfigs {
+        release {
+            keyAlias     keystoreProps["keyAlias"]     ?: ""
+            keyPassword  keystoreProps["keyPassword"]  ?: ""
+            storeFile    keystoreProps["storeFile"]    ? file(keystoreProps["storeFile"]) : null
+            storePassword keystoreProps["storePassword"] ?: ""
+        }
+    }
+
     defaultConfig {
         applicationId "com.baumagent.client"
         minSdk 23
@@ -29,13 +47,18 @@ android {
 
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            // Use release keystore when available; fall back to debug for unsigned local builds.
+            signingConfig keystorePropsFile.exists() ? signingConfigs.release : signingConfigs.debug
             minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+        debug {
+            signingConfig signingConfigs.debug
         }
     }
 }
 
 flutter {
-    source '../..'
+    source "../.."
 }

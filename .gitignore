@@ -1,0 +1,40 @@
+# ── Android signing ────────────────────────────────────────────────────────
+clients/android/baumagent/android/key.properties
+clients/android/baumagent/android/app/*.jks
+clients/android/baumagent/android/app/*.keystore
+
+# ── Windows signing ────────────────────────────────────────────────────────
+*.pfx
+*.p12
+
+# ── macOS signing ──────────────────────────────────────────────────────────
+# (p12 files excluded above)
+
+# ── Build outputs ──────────────────────────────────────────────────────────
+publish/
+clients/windows/installer/publish/
+clients/macos/build/
+*.apk
+*.exe
+*.dmg
+
+# ── Flutter ────────────────────────────────────────────────────────────────
+clients/android/baumagent/.dart_tool/
+clients/android/baumagent/build/
+clients/android/baumagent/android/local.properties
+clients/android/baumagent/android/.gradle/
+clients/android/baumagent/android/app/google-services.json
+
+# ── macOS / Swift ──────────────────────────────────────────────────────────
+clients/macos/BaumAgent/.build/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# ── Windows / .NET ─────────────────────────────────────────────────────────
+clients/windows/**/bin/
+clients/windows/**/obj/
+
+# ── General ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
