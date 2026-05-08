@@ -1,0 +1,199 @@
+asyncapi: "2.6.0"
+
+info:
+  title: BaumAgent WebSocket API
+  version: "1.0.0"
+  description: |
+    Real-time task log streaming over WebSocket.
+
+    Connect to `/ws/tasks/{taskId}/logs` to receive live agent output for a
+    running task. The server sends JSON frames until the task reaches a
+    terminal state, then sends a `done` frame and closes the connection.
+
+    ## Authentication
+
+    The WebSocket endpoint does **not** accept an `Authorization` header
+    (browser WebSocket API limitation). Pass the API token as a query parameter:
+
+    ```
+    wss://baumagent.example.com/ws/tasks/{taskId}/logs?token=bat_<token>
+    ```
+
+    > **Note:** The current server implementation does not yet enforce token
+    > auth on the WebSocket endpoint — it relies on the same-origin assumption
+    > of the web UI. Native clients should pass the token as a query param;
+    > the server will validate it in a future release. For now, the WS endpoint
+    > is accessible to any client that can reach the server.
+
+    ## Frame types
+
+    Every message is a JSON object with `type` and `data` fields:
+
+    | type | data | When sent |
+    |------|------|-----------|
+    | `log` | `string` | New log text appended since the last frame |
+    | `status` | `TaskStatus` | Task status changed |
+    | `progress` | `integer 0–100` | Agent reported a progress percentage |
+    | `done` | `DonePayload` | Task reached a terminal state — close after receiving |
+    | `error` | `string` | Task not found or other server error |
+
+    ## Reconnection
+
+    If the WebSocket disconnects before a `done` frame is received, reconnect
+    with backoff. On reconnect the server replays the full log from scratch
+    (it sends all log characters accumulated so far, not just the delta).
+
+servers:
+  baumagent:
+    url: "{host}"
+    protocol: wss
+    description: BaumAgent instance (set during first-launch pairing)
+    variables:
+      host:
+        default: baumagent.example.com
+
+channels:
+  /ws/tasks/{taskId}/logs:
+    description: |
+      Live task log stream. Connect while a task is queued or running.
+      Connecting to a task that is already in a terminal state returns the
+      accumulated log followed immediately by a `done` frame.
+    parameters:
+      taskId:
+        description: UUID of the task to stream
+        schema:
+          type: string
+          format: uuid
+
+    subscribe:
+      operationId: receiveTaskFrame
+      summary: Receive log frames from the server
+      description: |
+        The server publishes frames continuously until the task finishes.
+        Clients **subscribe** (receive) — they never send frames.
+      message:
+        oneOf:
+          - $ref: "#/components/messages/LogFrame"
+          - $ref: "#/components/messages/StatusFrame"
+          - $ref: "#/components/messages/ProgressFrame"
+          - $ref: "#/components/messages/DoneFrame"
+          - $ref: "#/components/messages/ErrorFrame"
+
+components:
+  messages:
+
+    LogFrame:
+      name: log
+      title: New log text
+      summary: Incremental log output from the agent
+      contentType: application/json
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            const: log
+          data:
+            type: string
+            description: |
+              New characters appended to the task log since the previous frame.
+              Concatenate all `log` frame data values to reconstruct the full log.
+            example: "[2024-01-15 10:23:11] Starting research task...\n"
+
+    StatusFrame:
+      name: status
+      title: Task status changed
+      summary: Emitted whenever the task's status field changes
+      contentType: application/json
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            const: status
+          data:
+            type: string
+            enum: [queued, running, complete, failed, cancelled]
+            description: The new task status
+            example: running
+
+    ProgressFrame:
+      name: progress
+      title: Agent reported progress
+      summary: |
+        Emitted when the agent explicitly reports a completion percentage.
+        Not all tasks emit progress frames — display a spinner when absent.
+      contentType: application/json
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            const: progress
+          data:
+            type: integer
+            minimum: 0
+            maximum: 100
+            description: Percent complete (0–100)
+            example: 42
+
+    DoneFrame:
+      name: done
+      title: Task reached terminal state
+      summary: |
+        Final frame — close the WebSocket after receiving this. The `status`
+        field tells you whether the task succeeded, failed, or was cancelled.
+      contentType: application/json
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            const: done
+          data:
+            type: object
+            required: [status]
+            properties:
+              status:
+                type: string
+                enum: [complete, failed, cancelled]
+              output_file:
+                type: string
+                nullable: true
+                description: |
+                  Server-side path to the generated file (if any). Use
+                  `GET /api/tasks/{id}/exports` for the downloadable URL.
+              pr_url:
+                type: string
+                nullable: true
+                description: GitHub PR URL (code tasks only)
+              error:
+                type: string
+                nullable: true
+                description: Error message when status is `failed` or `cancelled`
+            example:
+              status: complete
+              output_file: /app/data/outputs/abc123/report.pdf
+              pr_url: null
+              error: null
+
+    ErrorFrame:
+      name: error
+      title: Server-side error
+      summary: Emitted when the task is not found or an internal error occurs. Close after receiving.
+      contentType: application/json
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            const: error
+          data:
+            type: string
+            description: Human-readable error message
+            example: "Task not found."

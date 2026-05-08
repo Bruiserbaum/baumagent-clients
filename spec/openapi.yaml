@@ -1,0 +1,1163 @@
+openapi: "3.1.0"
+
+info:
+  title: BaumAgent API
+  version: "1.0.0"
+  description: |
+    REST API for BaumAgent — a self-hosted AI task manager.
+
+    ## Authentication
+
+    Native clients authenticate with a long-lived API token obtained via the QR
+    pairing flow. Send the token as a Bearer credential on every request:
+
+    ```
+    Authorization: Bearer bat_<64-hex-chars>
+    ```
+
+    The web UI authenticates via Authentik forward-auth headers injected by the
+    reverse proxy — those headers are irrelevant to native clients.
+
+    ## Pairing flow
+
+    1. User opens the native client and enters the BaumAgent URL.
+    2. Client displays "Scan QR to connect" — or user pastes the code manually.
+    3. Authenticated web-UI user navigates to Settings → Pair New Device.
+       The UI calls `POST /api/auth/pair/initiate` and renders the returned
+       `pair_url` as a QR code. The code expires after `expires_in` seconds.
+    4. Native client scans / user pastes → client calls
+       `POST /api/auth/pair/complete` → receives `token`.
+    5. Client stores `token` in platform-native secure storage and uses it
+       for all subsequent requests.
+
+servers:
+  - url: "{scheme}://{host}"
+    variables:
+      scheme:
+        default: https
+        enum: [http, https]
+      host:
+        default: baumagent.example.com
+        description: Your BaumAgent instance hostname (set during first-launch pairing)
+
+security:
+  - bearerAuth: []
+
+# ---------------------------------------------------------------------------
+# Security schemes
+# ---------------------------------------------------------------------------
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "API token obtained via QR pairing. Format: bat_<64 hex chars>"
+
+  # ---------------------------------------------------------------------------
+  # Reusable schemas
+  # ---------------------------------------------------------------------------
+  schemas:
+
+    # --- Auth ---
+
+    PairInitiateResponse:
+      type: object
+      required: [code, expires_in, pair_url]
+      properties:
+        code:
+          type: string
+          description: One-time pairing code (URL-safe base64, ~22 chars)
+          example: "3gT8xKqZ2mP5vRnYoWdAeL"
+        expires_in:
+          type: integer
+          description: Seconds until the code expires (default 300)
+          example: 300
+        pair_url:
+          type: string
+          description: |
+            Deep-link URL encoding the server address and pairing code.
+            Format: `baumagent://pair?url=<server_url>&code=<code>`
+            Render this as a QR code in the web UI.
+          example: "baumagent://pair?url=https://baumagent.example.com&code=3gT8xKqZ2mP5vRnYoWdAeL"
+
+    PairCompleteRequest:
+      type: object
+      required: [code, device_name]
+      properties:
+        code:
+          type: string
+          description: Pairing code from the QR / manual entry
+          example: "3gT8xKqZ2mP5vRnYoWdAeL"
+        device_name:
+          type: string
+          description: Human-readable label for this device shown in token management
+          example: "My MacBook Pro"
+
+    PairCompleteResponse:
+      type: object
+      required: [token, token_id, user_id, user_email, user_display_name]
+      properties:
+        token:
+          type: string
+          description: |
+            The API token. **Store immediately in secure storage — it is never
+            returned again.**
+          example: "bat_a3f8e2c1..."
+        token_id:
+          type: string
+          format: uuid
+          description: ID of the token record (used to revoke it)
+        user_id:
+          type: string
+          format: uuid
+        user_email:
+          type: string
+          format: email
+        user_display_name:
+          type: string
+
+    ApiToken:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Device label
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    # --- Push ---
+
+    PushTokenRegister:
+      type: object
+      required: [platform, token]
+      properties:
+        platform:
+          type: string
+          enum: [apns, fcm, wns]
+          description: "apns = Mac/iOS, fcm = Android, wns = Windows"
+        token:
+          type: string
+          description: Device push token from the platform SDK
+        device_label:
+          type: string
+          default: ""
+
+    PushToken:
+      type: object
+      required: [id, platform, device_label, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum: [apns, fcm, wns]
+        device_label:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # --- Tasks ---
+
+    TaskStatus:
+      type: string
+      enum: [queued, running, complete, failed, cancelled]
+
+    Task:
+      type: object
+      required: [id, created_at, updated_at, description, repo_url, base_branch,
+                 llm_backend, llm_model, status, log, task_type, extra_data]
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        description:
+          type: string
+          description: Natural-language task description (the prompt)
+        repo_url:
+          type: string
+          description: GitHub repository URL (empty string for non-code tasks)
+        base_branch:
+          type: string
+          default: main
+        llm_backend:
+          type: string
+          enum: [anthropic, openai, ollama]
+        llm_model:
+          type: string
+          example: claude-opus-4-6
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        rq_job_id:
+          type: string
+          nullable: true
+        branch_name:
+          type: string
+          nullable: true
+          description: Git branch created by the agent (code tasks)
+        pr_url:
+          type: string
+          nullable: true
+          description: GitHub pull request URL (code tasks, on completion)
+        pr_number:
+          type: integer
+          nullable: true
+        commit_sha:
+          type: string
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+        log:
+          type: string
+          description: |
+            Accumulated agent log text. For live streaming, connect to the
+            WebSocket endpoint instead of polling this field.
+        task_type:
+          type: string
+          enum: [code, research, deep_research, structured_document]
+        output_file:
+          type: string
+          nullable: true
+          description: Server-side path to the generated output file
+        output_format:
+          type: string
+          nullable: true
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        extra_data:
+          type: string
+          description: JSON blob of task-type-specific options
+          default: "{}"
+        progress_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+
+    TaskList:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        total:
+          type: integer
+          description: Total number of tasks matching the filter
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    ExportFile:
+      type: object
+      required: [filename, size_bytes, mime_type, created_at, download_url]
+      properties:
+        filename:
+          type: string
+          example: report.pdf
+        size_bytes:
+          type: integer
+          example: 204800
+        mime_type:
+          type: string
+          example: application/pdf
+        created_at:
+          type: string
+          format: date-time
+        download_url:
+          type: string
+          format: uri
+          description: Absolute URL to download this file via GET
+
+    # --- Projects ---
+
+    Project:
+      type: object
+      required: [id, user_id, name, color, position, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex colour string
+          example: "#3b82f6"
+        position:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    ProjectCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+          default: "#3b82f6"
+
+    ProjectUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+        position:
+          type: integer
+
+    # --- Users ---
+
+    User:
+      type: object
+      required: [id, email, display_name, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    UserUpdate:
+      type: object
+      properties:
+        display_name:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+
+    # --- Settings ---
+
+    DocFormatSettings:
+      type: object
+      properties:
+        title_font_size:    { type: integer, minimum: 12, maximum: 40, default: 24 }
+        heading_font_size:  { type: integer, minimum: 10, maximum: 28, default: 14 }
+        body_font_size:     { type: integer, minimum: 8,  maximum: 18, default: 11 }
+        header_color:       { type: string, example: "#1a73e8" }
+        accent_color:       { type: string, example: "#0d6efd" }
+        include_summary:    { type: boolean, default: true }
+        include_links:      { type: boolean, default: true }
+        include_images:     { type: boolean, default: true }
+        section_style:      { type: string, enum: [paragraphs, bullets, mixed], default: paragraphs }
+        page_size:          { type: string, enum: [letter, a4], default: letter }
+        summary_as_bullets: { type: boolean, default: false }
+
+    SMBSettings:
+      type: object
+      properties:
+        enabled:     { type: boolean, default: false }
+        host:        { type: string }
+        share:       { type: string }
+        username:    { type: string }
+        password:    { type: string, format: password }
+        domain:      { type: string }
+        remote_path: { type: string }
+
+    PortalSettings:
+      type: object
+      properties:
+        default_llm_backend:  { type: string }
+        default_llm_model:    { type: string }
+        chat_backend:         { type: string }
+        chat_model:           { type: string }
+        research_backend:     { type: string }
+        research_model:       { type: string }
+        code_backend:         { type: string }
+        code_model:           { type: string }
+        coding_backend:       { type: string }
+        coding_model:         { type: string }
+        doc_format:
+          $ref: "#/components/schemas/DocFormatSettings"
+        smb:
+          $ref: "#/components/schemas/SMBSettings"
+
+    # --- Queue / Health / Models ---
+
+    QueueStatus:
+      type: object
+      required: [queued, running]
+      properties:
+        queued:
+          type: array
+          items: { type: string, format: uuid }
+          description: Task IDs waiting in FIFO order
+        running:
+          type: array
+          items: { type: string, format: uuid }
+          description: Task IDs currently executing
+
+    ModelsResponse:
+      type: object
+      properties:
+        anthropic: { type: array, items: { type: string } }
+        openai:    { type: array, items: { type: string } }
+        ollama:    { type: array, items: { type: string } }
+
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+
+    # --- Errors ---
+
+    ErrorDetail:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+
+  # ---------------------------------------------------------------------------
+  # Reusable responses
+  # ---------------------------------------------------------------------------
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorDetail" }
+
+    Unauthorized:
+      description: Missing or invalid API token
+      headers:
+        WWW-Authenticate:
+          schema: { type: string, example: Bearer }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorDetail" }
+
+    Conflict:
+      description: State conflict (e.g. cannot cancel a completed task)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorDetail" }
+
+  # ---------------------------------------------------------------------------
+  # Reusable parameters
+  # ---------------------------------------------------------------------------
+  parameters:
+    taskId:
+      name: task_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+    projectId:
+      name: project_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+    tokenId:
+      name: token_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+    page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+
+    pageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+paths:
+
+  # ── Health ────────────────────────────────────────────────────────────────
+
+  /api/health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      description: |
+        Returns `{"status": "ok"}`. Use this during first-launch to verify the
+        entered URL points at a running BaumAgent instance **before** initiating
+        pairing.
+      security: []
+      tags: [health]
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthResponse" }
+
+  # ── Auth / Pairing ────────────────────────────────────────────────────────
+
+  /api/auth/pair/initiate:
+    post:
+      operationId: initiatePairing
+      summary: Generate a QR pairing code
+      description: |
+        Call from the **web UI** (authenticated via Authentik). Returns a
+        one-time code and a `baumagent://` deep-link. Render the deep-link as
+        a QR code; the native client scans it or the user types the code
+        manually. The code is valid for `expires_in` seconds (default 300).
+      tags: [auth]
+      responses:
+        "200":
+          description: Pairing code generated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PairInitiateResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/pair/complete:
+    post:
+      operationId: completePairing
+      summary: Exchange a pairing code for an API token
+      description: |
+        Called by the **native client** after scanning the QR / receiving the
+        code. The code is consumed immediately (single-use). Returns the API
+        token — store it now; it cannot be retrieved again.
+      security: []
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PairCompleteRequest" }
+      responses:
+        "201":
+          description: Token issued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PairCompleteResponse" }
+        "400":
+          description: Invalid or expired pairing code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorDetail" }
+
+  /api/auth/tokens:
+    get:
+      operationId: listTokens
+      summary: List active API tokens for the current user
+      tags: [auth]
+      responses:
+        "200":
+          description: Token list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ApiToken" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/tokens/{token_id}:
+    delete:
+      operationId: revokeToken
+      summary: Revoke an API token
+      description: The device using this token will be immediately de-authenticated.
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/tokenId"
+      responses:
+        "204": { description: Token revoked }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Push Notifications ────────────────────────────────────────────────────
+
+  /api/push/register:
+    post:
+      operationId: registerPushToken
+      summary: Register or refresh a device push token
+      description: |
+        Call on every app launch (platform tokens can rotate). If the same
+        token already exists for this user, the device label is updated.
+      tags: [push]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushTokenRegister" }
+      responses:
+        "201":
+          description: Token registered
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushToken" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/push/tokens:
+    get:
+      operationId: listPushTokens
+      summary: List registered push tokens for the current user
+      tags: [push]
+      responses:
+        "200":
+          description: Push token list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PushToken" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/push/tokens/{token_id}:
+    delete:
+      operationId: deletePushToken
+      summary: Unregister a push token
+      tags: [push]
+      parameters:
+        - $ref: "#/components/parameters/tokenId"
+      responses:
+        "204": { description: Token removed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Tasks ─────────────────────────────────────────────────────────────────
+
+  /api/tasks:
+    get:
+      operationId: listTasks
+      summary: List tasks (paginated)
+      description: |
+        Returns the authenticated user's tasks ordered newest-first.
+        When `TEAM_MODE=true` on the server, returns all users' tasks.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
+      responses:
+        "200":
+          description: Paginated task list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    post:
+      operationId: createTask
+      summary: Create and enqueue a task
+      description: |
+        Accepts `multipart/form-data`. The `description` field is the task
+        prompt. Attach images (JPEG/PNG) via the `images` field.
+
+        **Task type routing:**
+        - `code` — clones `repo_url`, makes changes, opens a PR
+        - `research` — web search + PDF report
+        - `deep_research` — extended research variant
+        - `structured_document` — structured plan/proposal as DOCX
+      tags: [tasks]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                description:
+                  type: string
+                  description: Task prompt (required)
+                repo_url:
+                  type: string
+                  default: ""
+                base_branch:
+                  type: string
+                  default: main
+                llm_backend:
+                  type: string
+                  enum: [anthropic, openai, ollama]
+                  default: anthropic
+                llm_model:
+                  type: string
+                  default: claude-opus-4-6
+                task_type:
+                  type: string
+                  enum: [code, research, deep_research, structured_document]
+                  default: code
+                output_format:
+                  type: string
+                  nullable: true
+                project_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                # Code task options
+                delivery_mode:
+                  type: string
+                  enum: [pr_mode, direct_commit]
+                  default: pr_mode
+                build_after_change:
+                  type: string
+                  enum: ["true", "false"]
+                  default: "true"
+                create_release_artifacts:
+                  type: string
+                  enum: ["true", "false"]
+                  default: "false"
+                publish_release:
+                  type: string
+                  enum: ["true", "false"]
+                  default: "true"
+                update_docs:
+                  type: string
+                  default: if_needed
+                update_changelog:
+                  type: string
+                  enum: ["true", "false"]
+                  default: "true"
+                # Research task options
+                research_style:
+                  type: string
+                  enum: [standard, deep]
+                  default: standard
+                # LLM fallback
+                fallback_to_anthropic:
+                  type: string
+                  enum: ["true", "false"]
+                  default: "false"
+                fallback_anthropic_model:
+                  type: string
+                  default: claude-sonnet-4-6
+                # Structured document options (all optional)
+                document_mode:
+                  type: string
+                  default: plan
+                doc_title:          { type: string, default: "" }
+                doc_audience:       { type: string, default: "" }
+                doc_purpose:        { type: string, default: "" }
+                doc_background:     { type: string, default: "" }
+                doc_constraints:    { type: string, default: "" }
+                doc_timeline:       { type: string, default: "" }
+                doc_budget:         { type: string, default: "" }
+                doc_stakeholders:   { type: string, default: "" }
+                doc_required_sections: { type: string, default: "" }
+                doc_tone:           { type: string, enum: [formal, conversational, technical], default: formal }
+                doc_detail_level:   { type: string, enum: [brief, standard, detailed], default: standard }
+                doc_decision_needed: { type: string, default: "" }
+                doc_risks_concerns: { type: string, default: "" }
+                doc_alternatives:   { type: string, default: "" }
+                doc_assumptions:    { type: string, default: "" }
+                doc_success_measures: { type: string, default: "" }
+                doc_include_exec_summary:    { type: string, enum: ["true","false"], default: "true" }
+                doc_include_budget_section:  { type: string, enum: ["true","false"], default: "true" }
+                doc_include_timeline_section: { type: string, enum: ["true","false"], default: "true" }
+                doc_include_risks_section:   { type: string, enum: ["true","false"], default: "true" }
+                doc_include_appendix:        { type: string, enum: ["true","false"], default: "false" }
+      responses:
+        "201":
+          description: Task created and enqueued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/tasks/{task_id}:
+    get:
+      operationId: getTask
+      summary: Get a single task
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/taskId"
+      responses:
+        "200":
+          description: Task detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    delete:
+      operationId: deleteTask
+      summary: Delete a task
+      description: Cannot delete a task while it is running — cancel it first.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/taskId"
+      responses:
+        "204": { description: Task deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/tasks/{task_id}/retry:
+    post:
+      operationId: retryTask
+      summary: Re-run a failed, cancelled, or completed task
+      description: Re-enqueues the task with its original parameters. Clear fields (error, output, job ID) are reset.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/taskId"
+      responses:
+        "200":
+          description: Task re-queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/tasks/{task_id}/cancel:
+    post:
+      operationId: cancelTask
+      summary: Cancel a queued or running task
+      description: |
+        Sets task status to `cancelled`. The in-progress LLM call is
+        best-effort interrupted via RQ job cancellation.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/taskId"
+      responses:
+        "204": { description: Task cancelled }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/tasks/{task_id}/exports:
+    get:
+      operationId: listTaskExports
+      summary: List output files for a completed task
+      description: |
+        Returns metadata for all files in the task's output directory.
+        For code tasks the output is a GitHub PR (see `task.pr_url`), not a
+        file — this endpoint will return an empty array for those tasks.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/taskId"
+      responses:
+        "200":
+          description: Export file list (may be empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ExportFile" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/tasks/{task_id}/download:
+    get:
+      operationId: downloadTaskOutput
+      summary: Download the primary output file
+      description: |
+        Returns the output file as a binary download. Use `Content-Disposition`
+        for the filename. For multi-file tasks, returns the first file found;
+        prefer `/exports` to enumerate and download individual files.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/taskId"
+      responses:
+        "200":
+          description: Output file binary
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/tasks/{task_id}/output-text:
+    get:
+      operationId: getTaskOutputText
+      summary: Get raw text content of a task's output (code tasks)
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/taskId"
+      responses:
+        "200":
+          description: Plain text output
+          content:
+            text/plain:
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/tasks/{task_id}/project:
+    put:
+      operationId: assignTaskProject
+      summary: Assign or unassign a task to a project
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/taskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Set to null to unassign
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Projects ──────────────────────────────────────────────────────────────
+
+  /api/projects:
+    get:
+      operationId: listProjects
+      summary: List projects for the current user
+      tags: [projects]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Project" }
+          description: Project list
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    post:
+      operationId: createProject
+      summary: Create a project
+      tags: [projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectCreate" }
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/projects/{project_id}:
+    put:
+      operationId: updateProject
+      summary: Update a project
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectUpdate" }
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    delete:
+      operationId: deleteProject
+      summary: Delete a project (tasks become unassigned)
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      responses:
+        "204": { description: Project deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── Users ─────────────────────────────────────────────────────────────────
+
+  /api/me:
+    get:
+      operationId: getMe
+      summary: Get the authenticated user's profile
+      tags: [users]
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    put:
+      operationId: updateMe
+      summary: Update display name or avatar URL
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserUpdate" }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ── Settings ──────────────────────────────────────────────────────────────
+
+  /api/settings:
+    get:
+      operationId: getSettings
+      summary: Get per-user settings
+      tags: [settings]
+      responses:
+        "200":
+          description: User settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalSettings" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    put:
+      operationId: updateSettings
+      summary: Update per-user settings
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PortalSettings" }
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalSettings" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/settings/smb/test:
+    post:
+      operationId: testSMB
+      summary: Test the SMB network share connection
+      tags: [settings]
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, message]
+                properties:
+                  ok:      { type: boolean }
+                  message: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ── Queue + Models ────────────────────────────────────────────────────────
+
+  /api/queue:
+    get:
+      operationId: getQueue
+      summary: Get live queue state
+      description: Returns task IDs currently queued and running. Poll at ~3 s for a live queue indicator.
+      tags: [queue]
+      responses:
+        "200":
+          description: Queue state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueueStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/models:
+    get:
+      operationId: listModels
+      summary: List available LLM models
+      description: Returns model IDs grouped by backend. Ollama models are only present if Ollama is reachable from the server.
+      tags: [models]
+      responses:
+        "200":
+          description: Available models
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModelsResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+# ---------------------------------------------------------------------------
+# Tags
+# ---------------------------------------------------------------------------
+tags:
+  - name: health
+    description: Connectivity check — no auth required
+  - name: auth
+    description: QR pairing flow and API token management
+  - name: push
+    description: Device push token registration
+  - name: tasks
+    description: Task lifecycle — create, monitor, cancel, download
+  - name: projects
+    description: Project organisation for tasks
+  - name: users
+    description: User profile
+  - name: settings
+    description: Per-user LLM and document preferences
+  - name: queue
+    description: Real-time queue state
+  - name: models
+    description: Available LLM backends and model IDs

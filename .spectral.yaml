@@ -1,0 +1,8 @@
+extends:
+  - spectral:oas
+
+rules:
+  # Enforce that every operation has an operationId (needed for codegen)
+  operation-operationId: error
+  # Warn on undocumented response codes
+  operation-success-response: warn

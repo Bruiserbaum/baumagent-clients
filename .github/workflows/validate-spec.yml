@@ -1,0 +1,53 @@
+name: Validate API specs
+
+on:
+  push:
+    paths:
+      - "spec/**"
+  pull_request:
+    paths:
+      - "spec/**"
+
+jobs:
+  lint-openapi:
+    name: Lint OpenAPI 3.1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Spectral
+        run: npm install -g @stoplight/spectral-cli
+
+      - name: Lint OpenAPI spec
+        run: spectral lint spec/openapi.yaml --ruleset .spectral.yaml
+
+  validate-asyncapi:
+    name: Validate AsyncAPI 2.6
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install AsyncAPI CLI
+        run: npm install -g @asyncapi/cli
+
+      - name: Validate AsyncAPI spec
+        run: asyncapi validate spec/asyncapi.yaml
+
+  dry-run-codegen-csharp:
+    name: Dry-run C# codegen (Kiota)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Kiota
+        run: dotnet tool install --global Microsoft.OpenApi.Kiota
+
+      - name: Generate C# client (dry run)
+        run: |
+          kiota generate \
+            --language CSharp \
+            --class-name BaumAgentApiClient \
+            --namespace-name BaumAgent.Generated \
+            --openapi spec/openapi.yaml \
+            --output /tmp/kiota-out \
+            --clean-output
