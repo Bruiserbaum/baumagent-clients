@@ -14,15 +14,14 @@ DMG_OUT="$SCRIPT_DIR/build/${APP_NAME}-${VERSION}.dmg"
 
 echo "▶ Building $APP_NAME v$VERSION"
 
-# 1. Compile with Swift
+# 1. Compile with Swift (native arch of the runner)
 cd "$PKG_DIR"
-swift build -c release --arch arm64 --arch x86_64 2>&1
+swift build -c release 2>&1
 
-BINARY=".build/apple/Products/Release/$APP_NAME"
+BINARY=".build/release/$APP_NAME"
 if [ ! -f "$BINARY" ]; then
-  # Single-arch fallback
-  BINARY=".build/release/$APP_NAME"
-  swift build -c release
+  echo "Error: binary not found at $BINARY" >&2
+  exit 1
 fi
 
 # 2. Assemble .app bundle

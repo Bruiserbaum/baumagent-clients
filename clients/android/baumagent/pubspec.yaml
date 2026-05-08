@@ -22,9 +22,9 @@ dependencies:
   # Secure storage (Keystore/Keychain)
   flutter_secure_storage: ^9.0.0
 
-  # Firebase Cloud Messaging
-  firebase_core: ^3.1.1
-  firebase_messaging: ^15.0.4
+  # Firebase Cloud Messaging — uncomment once google-services.json is configured
+  # firebase_core: ^3.1.1
+  # firebase_messaging: ^15.0.4
 
   # Voice dictation
   speech_to_text: ^6.6.2

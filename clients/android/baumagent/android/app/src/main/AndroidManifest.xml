@@ -37,7 +37,7 @@
             </intent-filter>
         </activity>
 
-        <!-- FCM -->
+        <!-- FCM: uncomment once firebase_messaging is re-enabled in pubspec.yaml
         <service
             android:name="com.google.firebase.messaging.FirebaseMessagingService"
             android:exported="false">
@@ -51,5 +51,6 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="baumagent_tasks"/>
+        -->
     </application>
 </manifest>

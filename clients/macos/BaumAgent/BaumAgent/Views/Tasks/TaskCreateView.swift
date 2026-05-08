@@ -124,8 +124,9 @@ struct TaskCreateView: View {
         voiceStatus = "Listening…"
 
         do {
-            let result = try await SFSpeechRecognizer.shared?.dictate()
-            if let text = result, !text.isEmpty {
+            if let recognizer = SFSpeechRecognizer.shared,
+               let text = try await recognizer.dictate(),
+               !text.isEmpty {
                 description += text
             }
             voiceStatus = "Done"
@@ -157,8 +158,6 @@ struct TaskCreateView: View {
 }
 
 // MARK: - SFSpeechRecognizer helpers
-
-import Speech
 
 extension SFSpeechRecognizer {
     static var shared: SFSpeechRecognizer? = SFSpeechRecognizer(locale: .current)

@@ -23,8 +23,6 @@ Unicode True
 ; Modern UI
 !include "MUI2.nsh"
 !define MUI_ABORTWARNING
-!define MUI_ICON   "..\BaumAgentClient\Assets\baumagent.ico"
-!define MUI_UNICON "..\BaumAgentClient\Assets\baumagent.ico"
 !define MUI_WELCOMEPAGE_TITLE   "Install ${APPNAME} ${VERSION}"
 !define MUI_WELCOMEPAGE_TEXT    "This will install ${APPNAME} on your computer.$\n$\nClick Next to continue."
 !define MUI_FINISHPAGE_RUN      "$INSTDIR\${EXENAME}"
