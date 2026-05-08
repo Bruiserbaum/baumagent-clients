@@ -1,4 +1,5 @@
 using BaumAgent.Services;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
@@ -8,6 +9,8 @@ public sealed partial class ShellPage : Page
 {
     private readonly CredentialService _creds = App.GetService<CredentialService>();
     private readonly PushService _push = App.GetService<PushService>();
+    private readonly UpdateService _updater = new();
+    private UpdateInfo? _pendingUpdate;
 
     public ShellPage()
     {
@@ -21,6 +24,34 @@ public sealed partial class ShellPage : Page
 
         ContentFrame.Navigate(typeof(TaskListPage));
         NavView.SelectedItem = NavView.MenuItems[0];
+
+        _ = CheckForUpdateAsync();
+    }
+
+    private async Task CheckForUpdateAsync()
+    {
+        var update = await _updater.CheckForUpdateAsync();
+        if (update is null) return;
+        _pendingUpdate = update;
+        UpdateBannerText.Text = $"Update available: v{update.Version}";
+        UpdateBanner.Visibility = Visibility.Visible;
+    }
+
+    private async void UpdateDownload_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate is null) return;
+        UpdateDownloadBtn.IsEnabled = false;
+        UpdateBannerText.Text = "Downloading…";
+
+        await _updater.DownloadAndInstallAsync(_pendingUpdate, new Progress<int>(pct =>
+        {
+            UpdateBannerText.Text = $"Downloading… {pct}%";
+        }));
+    }
+
+    private void UpdateDismiss_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateBanner.Visibility = Visibility.Collapsed;
     }
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)

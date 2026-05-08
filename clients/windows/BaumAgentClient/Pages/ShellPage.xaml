@@ -4,7 +4,26 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Background="{StaticResource BaumBackgroundBrush}">
 
-    <NavigationView
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Update banner (collapsed until an update is available) -->
+        <Border x:Name="UpdateBanner" Grid.Row="0" Visibility="Collapsed"
+                Background="{StaticResource BaumAccentBrush}" Padding="12,8">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock x:Name="UpdateBannerText" Text=""
+                           Foreground="White" VerticalAlignment="Center" FontSize="13"/>
+                <Button x:Name="UpdateDownloadBtn" Content="Download &amp; Install"
+                        Click="UpdateDownload_Click" Padding="10,4" FontSize="12"/>
+                <Button x:Name="UpdateDismissBtn" Content="Dismiss"
+                        Click="UpdateDismiss_Click" Padding="8,4" FontSize="12"/>
+            </StackPanel>
+        </Border>
+
+        <NavigationView Grid.Row="1"
         x:Name="NavView"
         PaneDisplayMode="Left"
         IsBackButtonVisible="Visible"
@@ -36,4 +55,5 @@
 
         <Frame x:Name="ContentFrame" />
     </NavigationView>
+    </Grid>
 </Page>

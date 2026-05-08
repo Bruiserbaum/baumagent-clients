@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
+    @ObservedObject private var updater = UpdateService.shared
     @State private var tokens: [ApiToken] = []
     @State private var tokensError: String?
     @State private var creds: Credentials?
@@ -76,6 +77,31 @@ struct SettingsView: View {
                             Button("Re-pair device") { rePair() }
                             Button("Sign out & unpair") { showSignOutConfirm = true }
                                 .foregroundStyle(.red)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                // Updates
+                GroupBox("Updates") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if updater.isChecking {
+                            HStack { ProgressView(); Text("Checking…").font(.callout) }
+                        } else if let update = updater.availableUpdate {
+                            Text("v\(update.version) available").fontWeight(.semibold).foregroundStyle(.blue)
+                            if !update.notes.isEmpty {
+                                Text(update.notes).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                            }
+                            Button("Open Release Page") { updater.openReleasePage() }
+                                .buttonStyle(.borderedProminent)
+                        } else {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                Text("Up to date").font(.callout)
+                                Spacer()
+                                Button("Check now") { Task { await updater.checkForUpdate() } }
+                                    .font(.caption)
+                            }
                         }
                     }
                     .padding(.vertical, 4)

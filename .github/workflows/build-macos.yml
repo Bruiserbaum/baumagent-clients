@@ -1,0 +1,103 @@
+name: Build macOS
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      upload_url:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 1.2.3)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14        # Apple Silicon runner (arm64)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 15
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      # Optional: import Developer ID certificate for notarisation
+      # Required secrets: MACOS_CERT_P12, MACOS_CERT_PASSWORD,
+      #                   MACOS_NOTARIZE_APPLE_ID, MACOS_NOTARIZE_TEAM_ID,
+      #                   MACOS_NOTARIZE_APP_PASSWORD
+      - name: Import signing certificate
+        if: ${{ env.MACOS_CERT_P12 != '' }}
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" \
+            -k "$KEYCHAIN_PATH" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN_PATH"
+          echo "SIGN_IDENTITY=Developer ID Application" >> "$GITHUB_ENV"
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Patch version in Info.plist
+        run: |
+          /usr/libexec/PlistBuddy -c \
+            "Set :CFBundleShortVersionString ${{ inputs.version }}" \
+            clients/macos/BaumAgent/BaumAgent/Info.plist
+
+      - name: Build .app bundle and DMG
+        working-directory: clients/macos
+        env:
+          VERSION: ${{ inputs.version }}
+          SIGN_IDENTITY: ${{ env.SIGN_IDENTITY || '-' }}
+        run: |
+          chmod +x build-dmg.sh
+          ./build-dmg.sh
+
+      # Notarise (only when signing secrets are present)
+      - name: Notarise DMG
+        if: ${{ env.MACOS_NOTARIZE_APPLE_ID != '' }}
+        env:
+          MACOS_NOTARIZE_APPLE_ID: ${{ secrets.MACOS_NOTARIZE_APPLE_ID }}
+          MACOS_NOTARIZE_TEAM_ID: ${{ secrets.MACOS_NOTARIZE_TEAM_ID }}
+          MACOS_NOTARIZE_APP_PASSWORD: ${{ secrets.MACOS_NOTARIZE_APP_PASSWORD }}
+        run: |
+          xcrun notarytool submit \
+            "clients/macos/build/BaumAgent-${{ inputs.version }}.dmg" \
+            --apple-id "$MACOS_NOTARIZE_APPLE_ID" \
+            --team-id "$MACOS_NOTARIZE_TEAM_ID" \
+            --password "$MACOS_NOTARIZE_APP_PASSWORD" \
+            --wait
+          xcrun stapler staple \
+            "clients/macos/build/BaumAgent-${{ inputs.version }}.dmg"
+
+      - name: Upload DMG to release
+        if: ${{ inputs.upload_url != '' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ inputs.upload_url }}
+          asset_path: clients/macos/build/BaumAgent-${{ inputs.version }}.dmg
+          asset_name: BaumAgent-${{ inputs.version }}.dmg
+          asset_content_type: application/octet-stream
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: clients/macos/build/BaumAgent-${{ inputs.version }}.dmg
+          retention-days: 14

@@ -1,0 +1,116 @@
+name: Build Windows
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      upload_url:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 1.2.3)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore NuGet packages
+        working-directory: clients/windows
+        run: dotnet restore BaumAgentClient.sln
+
+      - name: Publish self-contained (win-x64)
+        working-directory: clients/windows/BaumAgentClient
+        run: |
+          dotnet publish BaumAgentClient.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:Version=${{ inputs.version }} `
+            -p:FileVersion=${{ inputs.version }}.0 `
+            -o "${{ github.workspace }}\publish"
+
+      # Download Windows App Runtime bootstrapper into publish dir
+      # so the NSIS installer can run it silently
+      - name: Download Windows App Runtime bootstrapper
+        run: |
+          $url = "https://aka.ms/windowsappruntimeinstall/1.5/x64"
+          Invoke-WebRequest -Uri $url -OutFile "${{ github.workspace }}\publish\WindowsAppRuntimeInstall.exe"
+        shell: pwsh
+
+      # Optional: code-sign the published exe
+      # Requires secrets: WINDOWS_CERT_PFX (base64-encoded PFX), WINDOWS_CERT_PASSWORD
+      - name: Sign published executable
+        if: ${{ secrets.WINDOWS_CERT_PFX != '' }}
+        run: |
+          $cert = [System.Convert]::FromBase64String("${{ secrets.WINDOWS_CERT_PFX }}")
+          $certPath = "${{ runner.temp }}\cert.pfx"
+          [IO.File]::WriteAllBytes($certPath, $cert)
+          $signtool = "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+          & $signtool sign /fd SHA256 /p "${{ secrets.WINDOWS_CERT_PASSWORD }}" `
+            /f $certPath /tr "http://timestamp.digicert.com" /td SHA256 `
+            "${{ github.workspace }}\publish\BaumAgentClient.exe"
+        shell: pwsh
+
+      - name: Install NSIS
+        run: choco install nsis --no-progress -y
+
+      - name: Build NSIS installer
+        run: |
+          # Copy publish output to installer working directory
+          Copy-Item -Recurse "${{ github.workspace }}\publish" `
+            "${{ github.workspace }}\clients\windows\installer\publish"
+
+          & "C:\Program Files (x86)\NSIS\makensis.exe" `
+            /DVERSION=${{ inputs.version }} `
+            "${{ github.workspace }}\clients\windows\installer\installer.nsi"
+
+          # Move output to workspace root for upload
+          Move-Item "BaumAgent-Setup-${{ inputs.version }}.exe" "${{ github.workspace }}\"
+        shell: pwsh
+
+      # Optional: sign the installer too
+      - name: Sign installer
+        if: ${{ secrets.WINDOWS_CERT_PFX != '' }}
+        run: |
+          $cert = [System.Convert]::FromBase64String("${{ secrets.WINDOWS_CERT_PFX }}")
+          $certPath = "${{ runner.temp }}\cert.pfx"
+          [IO.File]::WriteAllBytes($certPath, $cert)
+          $signtool = "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+          & $signtool sign /fd SHA256 /p "${{ secrets.WINDOWS_CERT_PASSWORD }}" `
+            /f $certPath /tr "http://timestamp.digicert.com" /td SHA256 `
+            "${{ github.workspace }}\BaumAgent-Setup-${{ inputs.version }}.exe"
+        shell: pwsh
+
+      - name: Upload installer to release
+        if: ${{ inputs.upload_url != '' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ inputs.upload_url }}
+          asset_path: ${{ github.workspace }}/BaumAgent-Setup-${{ inputs.version }}.exe
+          asset_name: BaumAgent-Setup-${{ inputs.version }}.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: BaumAgent-Setup-${{ inputs.version }}.exe
+          retention-days: 14

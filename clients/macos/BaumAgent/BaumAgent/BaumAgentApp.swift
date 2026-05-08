@@ -8,6 +8,7 @@ struct BaumAgentApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
+                .task { await UpdateService.shared.checkForUpdate() }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 960, height: 680)

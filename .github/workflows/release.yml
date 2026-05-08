@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Create the GitHub release first ───────────────────────────────────────
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        id: release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: BaumAgent ${{ github.ref_name }}
+          body: |
+            ## BaumAgent ${{ github.ref_name }}
+
+            ### Downloads
+            | Platform | File |
+            |----------|------|
+            | Windows  | `BaumAgent-Setup-${{ steps.version.outputs.version }}.exe` |
+            | Android  | `BaumAgent-${{ steps.version.outputs.version }}.apk` |
+            | macOS    | `BaumAgent-${{ steps.version.outputs.version }}.dmg` |
+
+            > **Windows**: Requires Windows 10 1809+ (x64). The installer bundles .NET 8 and installs the Windows App Runtime automatically.
+            > **Android**: Enable "Install from unknown sources" for your browser/file manager, then open the APK.
+            > **macOS**: Drag BaumAgent.app to Applications. macOS 14 (Sonoma) or later required.
+
+            ### Auto-update
+            All clients check for updates on launch and notify you in-app.
+          draft: false
+          prerelease: false
+
+  # ── Windows ───────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows installer
+    needs: create-release
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      version: ${{ needs.create-release.outputs.version }}
+      upload_url: ${{ needs.create-release.outputs.upload_url }}
+    secrets: inherit
+
+  # ── Android ───────────────────────────────────────────────────────────────
+  build-android:
+    name: Build Android APK
+    needs: create-release
+    uses: ./.github/workflows/build-android.yml
+    with:
+      version: ${{ needs.create-release.outputs.version }}
+      upload_url: ${{ needs.create-release.outputs.upload_url }}
+    secrets: inherit
+
+  # ── macOS ─────────────────────────────────────────────────────────────────
+  build-macos:
+    name: Build macOS DMG
+    needs: create-release
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.create-release.outputs.version }}
+      upload_url: ${{ needs.create-release.outputs.upload_url }}
+    secrets: inherit

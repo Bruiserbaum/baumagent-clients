@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
+import '../services/update_service.dart';
 import 'pairing_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -18,12 +19,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _url = '';
   List<ApiToken>? _tokens;
   String? _tokensError;
+  final _updateService = UpdateService();
+  UpdateInfo? _availableUpdate;
+  bool _checkingUpdate = false;
+  int? _downloadProgress;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
     _loadTokens();
+    _checkForUpdate();
+  }
+
+  Future<void> _checkForUpdate() async {
+    setState(() => _checkingUpdate = true);
+    final update = await _updateService.checkForUpdate();
+    if (mounted) setState(() { _availableUpdate = update; _checkingUpdate = false; });
+  }
+
+  Future<void> _downloadUpdate() async {
+    final update = _availableUpdate;
+    if (update == null) return;
+    setState(() => _downloadProgress = 0);
+    await _updateService.downloadAndInstall(
+      update,
+      onProgress: (p) { if (mounted) setState(() => _downloadProgress = p); },
+    );
+    if (mounted) setState(() => _downloadProgress = null);
   }
 
   Future<void> _loadProfile() async {
@@ -161,6 +184,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onPressed: _signOut,
                   child: const Text('Sign out & unpair'),
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Updates
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Updates', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 10),
+                if (_checkingUpdate)
+                  const Row(children: [
+                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 8),
+                    Text('Checking for updates…', style: TextStyle(fontSize: 13)),
+                  ])
+                else if (_availableUpdate != null) ...[
+                  Text('v${_availableUpdate!.version} available',
+                      style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600)),
+                  if (_downloadProgress != null)
+                    LinearProgressIndicator(value: _downloadProgress! / 100)
+                  else
+                    FilledButton(
+                      onPressed: _downloadUpdate,
+                      child: const Text('Download & Install'),
+                    ),
+                ] else
+                  Row(children: [
+                    Icon(Icons.check_circle, color: cs.primary, size: 16),
+                    const SizedBox(width: 6),
+                    const Text('Up to date', style: TextStyle(fontSize: 13)),
+                    const Spacer(),
+                    TextButton(onPressed: _checkForUpdate, child: const Text('Check now')),
+                  ]),
               ],
             ),
           ),
