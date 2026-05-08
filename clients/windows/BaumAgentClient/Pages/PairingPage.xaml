@@ -1,0 +1,66 @@
+<Page
+    x:Class="BaumAgent.Pages.PairingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource BaumBackgroundBrush}">
+
+    <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Width="440">
+        <StackPanel Spacing="24">
+
+            <!-- Logo / heading -->
+            <StackPanel Spacing="6" HorizontalAlignment="Center">
+                <TextBlock Text="BaumAgent" FontSize="32" FontWeight="Bold"
+                           Foreground="{StaticResource BaumAccentBrush}"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Connect to your homelab instance"
+                           Foreground="{StaticResource BaumSubtextBrush}"
+                           HorizontalAlignment="Center" FontSize="14"/>
+            </StackPanel>
+
+            <!-- Step 1: URL -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Step 1 — BaumAgent URL" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <TextBox x:Name="UrlBox"
+                             PlaceholderText="https://baumagent.yourdomain.com"
+                             Text="https://"
+                             Foreground="{StaticResource BaumTextBrush}"/>
+                    <Button x:Name="CheckUrlButton" Content="Check connection"
+                            HorizontalAlignment="Stretch" Click="CheckUrl_Click"/>
+                    <TextBlock x:Name="UrlStatus" Text="" FontSize="12"
+                               Foreground="{StaticResource BaumSubtextBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Step 2: Pairing code -->
+            <Border x:Name="PairStep" Style="{StaticResource CardStyle}" Opacity="0.4">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Step 2 — Pairing code" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <TextBlock FontSize="13" Foreground="{StaticResource BaumSubtextBrush}"
+                               TextWrapping="Wrap">
+                        In the BaumAgent web UI: Settings → Pair New Device.
+                        Scan the QR code or paste the code below.
+                    </TextBlock>
+                    <TextBox x:Name="CodeBox" PlaceholderText="Paste pairing code here"
+                             Foreground="{StaticResource BaumTextBrush}"/>
+                    <TextBox x:Name="DeviceNameBox" PlaceholderText="Device name (e.g. My Desktop)"
+                             Text="Windows PC"
+                             Foreground="{StaticResource BaumTextBrush}"/>
+                    <Button x:Name="PairButton" Content="Pair device"
+                            HorizontalAlignment="Stretch" Click="Pair_Click"
+                            IsEnabled="False"/>
+                    <TextBlock x:Name="PairStatus" Text="" FontSize="12"
+                               Foreground="{StaticResource BaumSubtextBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <ProgressRing x:Name="Spinner" IsActive="False"
+                          HorizontalAlignment="Center"/>
+
+        </StackPanel>
+    </Grid>
+</Page>

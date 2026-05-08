@@ -1,0 +1,90 @@
+<Page
+    x:Class="BaumAgent.Pages.TaskCreatePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource BaumBackgroundBrush}">
+
+    <ScrollViewer>
+        <StackPanel Margin="20" Spacing="16" MaxWidth="700">
+
+            <TextBlock Text="Create Task" FontSize="24" FontWeight="Bold"
+                       Foreground="{StaticResource BaumTextBrush}"/>
+
+            <!-- Description + voice input -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Description" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <TextBox x:Name="DescriptionBox"
+                             PlaceholderText="Describe the task…"
+                             AcceptsReturn="True" TextWrapping="Wrap"
+                             MinHeight="100"
+                             Foreground="{StaticResource BaumTextBrush}"/>
+
+                    <!-- Voice dictation button -->
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button x:Name="VoiceBtn" Content="🎤 Dictate"
+                                Click="Voice_Click"/>
+                        <TextBlock x:Name="VoiceStatus" Text=""
+                                   VerticalAlignment="Center" FontSize="12"
+                                   Foreground="{StaticResource BaumSubtextBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Task type + LLM -->
+            <Border Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Task type" FontWeight="SemiBold"
+                                   Foreground="{StaticResource BaumTextBrush}"/>
+                        <ComboBox x:Name="TypeBox" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="Research" Tag="research" IsSelected="True"/>
+                            <ComboBoxItem Content="Deep Research" Tag="deep_research"/>
+                            <ComboBoxItem Content="Code (GitHub)" Tag="code"/>
+                            <ComboBoxItem Content="Structured Document" Tag="structured_document"/>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="8" Margin="16,0,0,0">
+                        <TextBlock Text="LLM model" FontWeight="SemiBold"
+                                   Foreground="{StaticResource BaumTextBrush}"/>
+                        <ComboBox x:Name="ModelBox" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="claude-opus-4-6" IsSelected="True"/>
+                            <ComboBoxItem Content="claude-sonnet-4-6"/>
+                            <ComboBoxItem Content="claude-haiku-4-5-20251001"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Code task: repo URL -->
+            <Border x:Name="CodeOptions" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Repository" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <TextBox x:Name="RepoUrlBox" PlaceholderText="https://github.com/…"
+                             Foreground="{StaticResource BaumTextBrush}"/>
+                    <TextBox x:Name="BaseBranchBox" PlaceholderText="Base branch (default: main)"
+                             Text="main"
+                             Foreground="{StaticResource BaumTextBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Submit -->
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button x:Name="SubmitBtn" Content="Create task →"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Click="Submit_Click"/>
+                <ProgressRing x:Name="Spinner" IsActive="False" Width="24" Height="24"/>
+                <TextBlock x:Name="ErrorText" Text="" VerticalAlignment="Center"
+                           Foreground="{StaticResource BaumDangerBrush}" FontSize="13"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -1,0 +1,39 @@
+<Page
+    x:Class="BaumAgent.Pages.ShellPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource BaumBackgroundBrush}">
+
+    <NavigationView
+        x:Name="NavView"
+        PaneDisplayMode="Left"
+        IsBackButtonVisible="Visible"
+        IsBackEnabled="{x:Bind ContentFrame.CanGoBack, Mode=OneWay}"
+        BackRequested="NavView_BackRequested"
+        SelectionChanged="NavView_SelectionChanged"
+        PaneBackground="{StaticResource BaumSurfaceBrush}"
+        Background="{StaticResource BaumBackgroundBrush}">
+
+        <NavigationView.MenuItems>
+            <NavigationViewItem Content="Tasks" Tag="TaskList" Icon="List" />
+            <NavigationViewItem Content="Create task" Tag="TaskCreate" Icon="Add" />
+        </NavigationView.MenuItems>
+
+        <NavigationView.FooterMenuItems>
+            <NavigationViewItem Content="Settings" Tag="Settings" Icon="Setting" />
+        </NavigationView.FooterMenuItems>
+
+        <!-- User header in pane -->
+        <NavigationView.PaneHeader>
+            <StackPanel Padding="16,12">
+                <TextBlock x:Name="UserDisplay" Text="BaumAgent"
+                           FontWeight="Bold" FontSize="15"
+                           Foreground="{StaticResource BaumAccentBrush}"/>
+                <TextBlock x:Name="UserEmail" Text=""
+                           FontSize="11" Foreground="{StaticResource BaumSubtextBrush}"/>
+            </StackPanel>
+        </NavigationView.PaneHeader>
+
+        <Frame x:Name="ContentFrame" />
+    </NavigationView>
+</Page>

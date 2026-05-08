@@ -1,0 +1,109 @@
+<Page
+    x:Class="BaumAgent.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource BaumBackgroundBrush}">
+
+    <ScrollViewer>
+        <StackPanel Margin="20" Spacing="16" MaxWidth="700">
+
+            <TextBlock Text="Settings" FontSize="24" FontWeight="Bold"
+                       Foreground="{StaticResource BaumTextBrush}"/>
+
+            <!-- Account info -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Account" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="User:" FontSize="13"
+                                   Foreground="{StaticResource BaumSubtextBrush}" Width="80"/>
+                        <TextBlock x:Name="UserDisplayText" Text="" FontSize="13"
+                                   Foreground="{StaticResource BaumTextBrush}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Email:" FontSize="13"
+                                   Foreground="{StaticResource BaumSubtextBrush}" Width="80"/>
+                        <TextBlock x:Name="UserEmailText" Text="" FontSize="13"
+                                   Foreground="{StaticResource BaumTextBrush}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Server:" FontSize="13"
+                                   Foreground="{StaticResource BaumSubtextBrush}" Width="80"/>
+                        <TextBlock x:Name="ServerUrlText" Text="" FontSize="13"
+                                   Foreground="{StaticResource BaumTextBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- API tokens -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="API Tokens" FontWeight="SemiBold"
+                                   Foreground="{StaticResource BaumTextBrush}" VerticalAlignment="Center"/>
+                        <Button x:Name="RefreshTokensBtn" Content="Refresh"
+                                Click="RefreshTokens_Click" FontSize="12" Padding="8,4"/>
+                    </StackPanel>
+                    <ListView x:Name="TokensList" SelectionMode="None" Background="Transparent">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding Label}"
+                                                   Foreground="{StaticResource BaumTextBrush}"
+                                                   FontSize="13"/>
+                                        <TextBlock Text="{Binding CreatedDisplay}"
+                                                   Foreground="{StaticResource BaumSubtextBrush}"
+                                                   FontSize="11"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding LastUsedDisplay}"
+                                               Foreground="{StaticResource BaumSubtextBrush}"
+                                               FontSize="11" VerticalAlignment="Center" Margin="12,0"/>
+                                    <Button Grid.Column="2" Content="Revoke"
+                                            Tag="{Binding Id}" Click="RevokeToken_Click"
+                                            Foreground="{StaticResource BaumDangerBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <TextBlock x:Name="TokensError" Text="" FontSize="12"
+                               Foreground="{StaticResource BaumDangerBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Danger zone -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Account" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumDangerBrush}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
+                        <Button x:Name="RePairBtn" Content="Re-pair device"
+                                Click="RePair_Click"/>
+                        <Button x:Name="SignOutBtn" Content="Sign out &amp; unpair"
+                                Click="SignOut_Click"
+                                Foreground="{StaticResource BaumDangerBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- About -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="About" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <TextBlock Text="BaumAgent Windows Client v1.0.0" FontSize="13"
+                               Foreground="{StaticResource BaumSubtextBrush}"/>
+                    <TextBlock Text="WinUI 3 · Unpackaged · net8.0-windows10.0.22621.0" FontSize="12"
+                               Foreground="{StaticResource BaumSubtextBrush}"/>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

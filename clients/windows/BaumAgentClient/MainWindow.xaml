@@ -1,0 +1,28 @@
+<Window
+    x:Class="BaumAgent.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:tb="using:H.NotifyIcon"
+    Title="BaumAgent"
+    MinWidth="900"
+    MinHeight="600">
+
+    <Grid>
+        <!-- Root navigation frame -->
+        <Frame x:Name="RootFrame" />
+
+        <!-- System tray icon (always present while app runs) -->
+        <tb:TaskbarIcon
+            x:Name="TrayIcon"
+            ToolTipText="BaumAgent"
+            IconSource="Assets/baumagent.ico">
+            <tb:TaskbarIcon.ContextFlyout>
+                <MenuFlyout>
+                    <MenuFlyoutItem Text="Open" Click="TrayOpen_Click" />
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem Text="Quit" Click="TrayQuit_Click" />
+                </MenuFlyout>
+            </tb:TaskbarIcon.ContextFlyout>
+        </tb:TaskbarIcon>
+    </Grid>
+</Window>
