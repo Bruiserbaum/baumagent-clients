@@ -1,6 +1,6 @@
 plugins {
     id "com.android.application"
-    id "kotlin-android"
+    id "org.jetbrains.kotlin.android"
     id "dev.flutter.flutter-gradle-plugin"
     // com.google.gms.google-services is omitted until FCM is configured.
     // To enable: add the plugin here, add google-services.json to android/app/,

@@ -39,6 +39,61 @@ jobs:
         working-directory: clients/android/baumagent
         run: flutter pub get
 
+      # Write local.properties so Gradle's settings.gradle can find flutter.sdk.
+      # flutter pub get writes it on first run, but doing it explicitly is safer.
+      - name: Write android/local.properties
+        working-directory: clients/android/baumagent/android
+        run: |
+          FLUTTER_HOME="$(dirname "$(dirname "$(which flutter)")")"
+          printf 'sdk.dir=%s\nflutter.sdk=%s\n' \
+            "${ANDROID_SDK_ROOT:-$ANDROID_HOME}" \
+            "$FLUTTER_HOME" > local.properties
+
+      # Bootstrap the Gradle wrapper (gradlew + wrapper JAR) if not committed.
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.6'
+
+      - name: Bootstrap Gradle wrapper
+        working-directory: clients/android/baumagent/android
+        run: |
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version=8.6 --distribution-type=bin
+            chmod +x gradlew
+          fi
+
+      # Generate placeholder launcher icons (solid blue) for each mipmap density.
+      # Replace with real icons via flutter_launcher_icons before publishing to Play Store.
+      - name: Generate placeholder launcher icons
+        working-directory: clients/android/baumagent
+        run: |
+          python3 - <<'PYEOF'
+          import struct, zlib, os
+
+          def make_png(size, r=33, g=150, b=243):
+              raw = b''.join(b'\x00' + bytes([r, g, b]) * size for _ in range(size))
+              idat = zlib.compress(raw)
+              def chunk(tag, data):
+                  crc = zlib.crc32(tag + data) & 0xffffffff
+                  return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', crc)
+              return (b'\x89PNG\r\n\x1a\n'
+                      + chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 2, 0, 0, 0))
+                      + chunk(b'IDAT', idat)
+                      + chunk(b'IEND', b''))
+
+          densities = [('mipmap-mdpi', 48), ('mipmap-hdpi', 72),
+                       ('mipmap-xhdpi', 96), ('mipmap-xxhdpi', 144), ('mipmap-xxxhdpi', 192)]
+          for folder, size in densities:
+              path = f'android/app/src/main/res/{folder}'
+              os.makedirs(path, exist_ok=True)
+              png_path = f'{path}/ic_launcher.png'
+              if not os.path.exists(png_path):
+                  with open(png_path, 'wb') as f:
+                      f.write(make_png(size))
+                  print(f'Created {png_path} ({size}x{size})')
+          PYEOF
+
       # ── Signing ────────────────────────────────────────────────────────────
       # Required secrets: ANDROID_KEYSTORE (base64 .jks), ANDROID_KEY_ALIAS,
       #                   ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD
