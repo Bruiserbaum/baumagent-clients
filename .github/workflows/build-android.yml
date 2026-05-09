@@ -119,10 +119,26 @@ jobs:
             "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" \
             > clients/android/baumagent/android/key.properties
 
+      - name: Diagnose Android project structure
+        working-directory: clients/android/baumagent
+        run: |
+          echo "=== gradlew exists? ==="
+          ls -la android/gradlew 2>/dev/null && echo "gradlew found" || echo "gradlew MISSING"
+          echo "=== gradle wrapper jar? ==="
+          ls -la android/gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo "wrapper JAR MISSING"
+          echo "=== settings.gradle ==="
+          cat android/settings.gradle
+          echo "=== local.properties ==="
+          cat android/local.properties 2>/dev/null || echo "local.properties MISSING"
+          echo "=== MainActivity.kt ==="
+          find android/app/src/main/kotlin -name "*.kt" 2>/dev/null | xargs ls -la 2>/dev/null || echo "No Kotlin files found"
+          echo "=== Flutter version ==="
+          flutter --version
+
       - name: Build release APK
         working-directory: clients/android/baumagent
         run: |
-          flutter build apk --release \
+          flutter build apk --release --verbose \
             --build-name=${{ inputs.version }} \
             --build-number=${{ github.run_number }}
 
