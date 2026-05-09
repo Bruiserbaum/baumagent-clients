@@ -37,16 +37,24 @@ sed "s|1\.0\.0|$VERSION|g" "$PKG_DIR/BaumAgent/Info.plist" \
 # Copy entitlements alongside (for codesign step below)
 cp "$PKG_DIR/BaumAgent.entitlements" "$SCRIPT_DIR/build/"
 
-# 3. Code sign (ad-hoc if no identity supplied; CI overrides SIGN_IDENTITY)
+# 3. Code sign
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"   # "-" = ad-hoc
-codesign --force --deep \
-    --sign "$SIGN_IDENTITY" \
-    --entitlements "$SCRIPT_DIR/build/BaumAgent.entitlements" \
-    --options runtime \
-    --timestamp \
-    "$APP_BUNDLE"
 
-# Verify (skip spctl check for ad-hoc since it won't pass Gatekeeper)
+if [ "$SIGN_IDENTITY" = "-" ]; then
+    # Ad-hoc: skip hardened runtime and timestamp (requires Apple-signed cert)
+    codesign --force --deep \
+        --sign "$SIGN_IDENTITY" \
+        "$APP_BUNDLE"
+else
+    codesign --force --deep \
+        --sign "$SIGN_IDENTITY" \
+        --entitlements "$SCRIPT_DIR/build/BaumAgent.entitlements" \
+        --options runtime \
+        --timestamp \
+        "$APP_BUNDLE"
+fi
+
+# Verify
 codesign --verify --deep --strict "$APP_BUNDLE"
 if [ "$SIGN_IDENTITY" != "-" ]; then
     spctl --assess --type exec --verbose "$APP_BUNDLE" \
@@ -60,22 +68,27 @@ echo "✔ Signed: $APP_BUNDLE"
 mkdir -p "$SCRIPT_DIR/build"
 rm -f "$DMG_OUT"
 
-create-dmg \
-    --volname "$APP_NAME $VERSION" \
-    --volicon "$PKG_DIR/BaumAgent/Assets.xcassets/AppIcon.appiconset/icon_512x512.png" 2>/dev/null || true \
-    --window-pos 200 120 \
-    --window-size 660 400 \
-    --icon-size 100 \
-    --icon "$APP_NAME.app" 170 190 \
-    --hide-extension "$APP_NAME.app" \
-    --app-drop-link 490 190 \
-    --no-internet-enable \
-    "$DMG_OUT" \
-    "$SCRIPT_DIR/build/$APP_NAME.app" || {
-        # Fallback: plain hdiutil DMG without background
-        hdiutil create -volname "$APP_NAME $VERSION" \
-            -srcfolder "$SCRIPT_DIR/build/$APP_NAME.app" \
-            -ov -format UDZO "$DMG_OUT"
-    }
+# Build create-dmg args; --volicon is optional (only added if the icon exists)
+ICON_PATH="$PKG_DIR/BaumAgent/Assets.xcassets/AppIcon.appiconset/icon_512x512.png"
+DMG_ARGS=(
+    --volname "$APP_NAME $VERSION"
+    --window-pos 200 120
+    --window-size 660 400
+    --icon-size 100
+    --icon "$APP_NAME.app" 170 190
+    --hide-extension "$APP_NAME.app"
+    --app-drop-link 490 190
+    --no-internet-enable
+)
+if [ -f "$ICON_PATH" ]; then
+    DMG_ARGS+=(--volicon "$ICON_PATH")
+fi
+
+create-dmg "${DMG_ARGS[@]}" "$DMG_OUT" "$SCRIPT_DIR/build/$APP_NAME.app" || {
+    # Fallback: plain hdiutil DMG without background
+    hdiutil create -volname "$APP_NAME $VERSION" \
+        -srcfolder "$SCRIPT_DIR/build/$APP_NAME.app" \
+        -ov -format UDZO "$DMG_OUT"
+}
 
 echo "✔ DMG: $DMG_OUT"

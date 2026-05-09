@@ -6,9 +6,6 @@ on:
       version:
         required: true
         type: string
-      upload_url:
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
       version:
@@ -42,9 +39,6 @@ jobs:
         working-directory: clients/android/baumagent
         run: flutter pub get
 
-      # Decode keystore from GitHub secret (base64-encoded .jks file)
-      # Required secrets: ANDROID_KEYSTORE, ANDROID_KEY_ALIAS,
-      #                   ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD
       # ── Signing ────────────────────────────────────────────────────────────
       # Required secrets: ANDROID_KEYSTORE (base64 .jks), ANDROID_KEY_ALIAS,
       #                   ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD
@@ -66,7 +60,6 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: |
-          # No leading whitespace — property parser is whitespace-sensitive
           printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=keystore.jks\n' \
             "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" \
             > clients/android/baumagent/android/key.properties
@@ -83,16 +76,17 @@ jobs:
           mv clients/android/baumagent/build/app/outputs/flutter-apk/app-release.apk \
              BaumAgent-${{ inputs.version }}.apk
 
+      # ── Upload ────────────────────────────────────────────────────────────
+
       - name: Upload APK to release
-        if: ${{ inputs.upload_url != '' }}
-        uses: actions/upload-release-asset@v1
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ inputs.upload_url }}
-          asset_path: BaumAgent-${{ inputs.version }}.apk
-          asset_name: BaumAgent-${{ inputs.version }}.apk
-          asset_content_type: application/vnd.android.package-archive
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            "BaumAgent-${{ inputs.version }}.apk" \
+            --clobber \
+            --repo "${{ github.repository }}"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

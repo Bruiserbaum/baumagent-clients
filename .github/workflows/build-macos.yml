@@ -6,9 +6,6 @@ on:
       version:
         required: true
         type: string
-      upload_url:
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
       version:
@@ -25,9 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode 15
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
-
       # ── Code signing ──────────────────────────────────────────────────────
       # Runs only when MACOS_CERT_P12 secret is set.
       # See SIGNING.md for how to export your Developer ID certificate.
@@ -42,12 +36,10 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
           KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
 
-          # Create a temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # Import the certificate
           echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
           security import "$RUNNER_TEMP/cert.p12" \
             -k "$KEYCHAIN_PATH" \
@@ -55,15 +47,12 @@ jobs:
             -T /usr/bin/codesign \
             -T /usr/bin/security
 
-          # Allow codesign to use the key without prompting
           security set-key-partition-list \
             -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # Add to the search list so codesign finds it
           security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
 
-          # Extract the full identity CN from the imported cert and export it
           IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
             | grep "Developer ID Application" \
             | head -1 \
@@ -122,15 +111,14 @@ jobs:
       # ── Upload ────────────────────────────────────────────────────────────
 
       - name: Upload DMG to release
-        if: ${{ inputs.upload_url != '' }}
-        uses: actions/upload-release-asset@v1
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ inputs.upload_url }}
-          asset_path: clients/macos/build/BaumAgent-${{ inputs.version }}.dmg
-          asset_name: BaumAgent-${{ inputs.version }}.dmg
-          asset_content_type: application/octet-stream
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            "clients/macos/build/BaumAgent-${{ inputs.version }}.dmg" \
+            --clobber \
+            --repo "${{ github.repository }}"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

@@ -6,9 +6,6 @@ on:
       version:
         required: true
         type: string
-      upload_url:
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
       version:
@@ -65,7 +62,6 @@ jobs:
           WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
         id: signtool
         run: |
-          # Search all installed Windows SDK versions; pick the newest x64 signtool.
           $signtool = Get-ChildItem `
             -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
             -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
@@ -105,7 +101,6 @@ jobs:
             /tr "http://timestamp.digicert.com" /td SHA256 `
             /d "BaumAgent" `
             "${{ github.workspace }}\publish\BaumAgentClient.exe"
-          # Verify
           & "${{ steps.signtool.outputs.path }}" verify /pa `
             "${{ github.workspace }}\publish\BaumAgentClient.exe"
         shell: pwsh
@@ -124,7 +119,10 @@ jobs:
             /DVERSION=${{ inputs.version }} `
             "${{ github.workspace }}\clients\windows\installer\installer.nsi"
 
-          Move-Item "BaumAgent-Setup-${{ inputs.version }}.exe" "${{ github.workspace }}\"
+          # NSIS OutFile is relative to the script directory
+          Move-Item `
+            "${{ github.workspace }}\clients\windows\installer\BaumAgent-Setup-${{ inputs.version }}.exe" `
+            "${{ github.workspace }}\BaumAgent-Setup-${{ inputs.version }}.exe"
         shell: pwsh
 
       - name: Sign installer
@@ -147,15 +145,15 @@ jobs:
       # ── Upload ────────────────────────────────────────────────────────────
 
       - name: Upload installer to release
-        if: ${{ inputs.upload_url != '' }}
-        uses: actions/upload-release-asset@v1
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ inputs.upload_url }}
-          asset_path: ${{ github.workspace }}/BaumAgent-Setup-${{ inputs.version }}.exe
-          asset_name: BaumAgent-Setup-${{ inputs.version }}.exe
-          asset_content_type: application/octet-stream
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" `
+            "${{ github.workspace }}\BaumAgent-Setup-${{ inputs.version }}.exe" `
+            --clobber `
+            --repo "${{ github.repository }}"
+        shell: pwsh
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
