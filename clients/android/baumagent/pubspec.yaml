@@ -27,7 +27,7 @@ dependencies:
   # firebase_messaging: ^15.0.4
 
   # Voice dictation
-  speech_to_text: ^6.6.2
+  speech_to_text: ^7.0.0
 
   # QR scanner for pairing
   mobile_scanner: ^5.1.0
