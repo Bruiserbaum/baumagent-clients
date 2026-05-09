@@ -20,29 +20,35 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
+      - name: Write release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          printf '%s\n' \
+            "## BaumAgent $GITHUB_REF_NAME" \
+            "" \
+            "### Downloads" \
+            "| Platform | File |" \
+            "|----------|------|" \
+            "| Windows  | \`BaumAgent-Setup-${VERSION}.exe\` |" \
+            "| Android  | \`BaumAgent-${VERSION}.apk\` |" \
+            "| macOS    | \`BaumAgent-${VERSION}.dmg\` |" \
+            "" \
+            "> **Windows**: Requires Windows 10 1809+ (x64). The installer includes .NET 8 and installs the Windows App Runtime automatically." \
+            "> **Android**: Enable *Install from unknown sources* for your browser or file manager, then open the APK." \
+            "> **macOS**: Drag BaumAgent.app to Applications. macOS 14 (Sonoma) or later required." \
+            "" \
+            "### Auto-update" \
+            "All clients check for updates on launch and notify you in-app." \
+            > "$RUNNER_TEMP/notes.md"
+
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --title "BaumAgent $GITHUB_REF_NAME" \
-            --notes "## BaumAgent $GITHUB_REF_NAME
-
-### Downloads
-| Platform | File |
-|----------|------|
-| Windows  | \`BaumAgent-Setup-${VERSION}.exe\` |
-| Android  | \`BaumAgent-${VERSION}.apk\` |
-| macOS    | \`BaumAgent-${VERSION}.dmg\` |
-
-> **Windows**: Requires Windows 10 1809+ (x64). The installer includes .NET 8 and installs the Windows App Runtime automatically.
-> **Android**: Enable *Install from unknown sources* for your browser or file manager, then open the APK.
-> **macOS**: Drag BaumAgent.app to Applications. macOS 14 (Sonoma) or later required.
-
-### Auto-update
-All clients check for updates on launch and notify you in-app." \
+            --notes-file "$RUNNER_TEMP/notes.md" \
             --draft=false \
             --prerelease=false \
           || echo "Release already exists — continuing with asset uploads"
