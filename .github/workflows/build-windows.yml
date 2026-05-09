@@ -40,7 +40,8 @@ jobs:
             --self-contained true `
             -p:Version=${{ inputs.version }} `
             -p:FileVersion=${{ inputs.version }}.0 `
-            -o "${{ github.workspace }}\publish"
+            -o "${{ github.workspace }}\publish" `
+            -v:normal
         shell: pwsh
 
       # Download Windows App Runtime bootstrapper into publish dir so

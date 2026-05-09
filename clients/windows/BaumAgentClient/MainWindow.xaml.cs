@@ -1,23 +1,18 @@
 using BaumAgent.Pages;
 using BaumAgent.Services;
-using H.NotifyIcon;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Windows.Graphics;
 
 namespace BaumAgent;
 
 public sealed partial class MainWindow : Window
 {
-    private TaskbarIcon? _trayIcon;
-
     public MainWindow()
     {
         InitializeComponent();
         SetupWindow();
-        SetupTrayIcon();
         NavigateToStartPage();
     }
 
@@ -39,26 +34,6 @@ public sealed partial class MainWindow : Window
             fe.RequestedTheme = ElementTheme.Dark;
     }
 
-    private void SetupTrayIcon()
-    {
-        var openItem = new MenuFlyoutItem { Text = "Open" };
-        openItem.Click += TrayOpen_Click;
-
-        var quitItem = new MenuFlyoutItem { Text = "Quit" };
-        quitItem.Click += TrayQuit_Click;
-
-        var flyout = new MenuFlyout();
-        flyout.Items.Add(openItem);
-        flyout.Items.Add(new MenuFlyoutSeparator());
-        flyout.Items.Add(quitItem);
-
-        _trayIcon = new TaskbarIcon
-        {
-            ToolTipText = "BaumAgent",
-            ContextFlyout = flyout,
-        };
-    }
-
     private void NavigateToStartPage()
     {
         var creds = App.GetService<CredentialService>();
@@ -66,17 +41,5 @@ public sealed partial class MainWindow : Window
             RootFrame.Navigate(typeof(ShellPage));
         else
             RootFrame.Navigate(typeof(PairingPage));
-    }
-
-    private void TrayOpen_Click(object sender, RoutedEventArgs e)
-    {
-        AppWindow.Show();
-        AppWindow.MoveInZOrderAtTop();
-    }
-
-    private void TrayQuit_Click(object sender, RoutedEventArgs e)
-    {
-        _trayIcon?.Dispose();
-        Application.Current.Exit();
     }
 }

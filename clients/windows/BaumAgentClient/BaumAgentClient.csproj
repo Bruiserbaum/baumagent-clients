@@ -22,7 +22,6 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" IncludeAssets="build" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
-    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.1.0" />
   </ItemGroup>
 
 </Project>
