@@ -17,6 +17,18 @@ public class BaumAgentApiClient
         PropertyNameCaseInsensitive = true,
     };
 
+    private static async Task<T> ReadJsonAsync<T>(HttpResponseMessage r)
+    {
+        var body = await r.Content.ReadAsStringAsync();
+        if (body.TrimStart().StartsWith('<'))
+            throw new InvalidOperationException(
+                "Server returned an HTML page instead of JSON. " +
+                "The API may be unavailable or your session may have expired. " +
+                "Try re-pairing in Settings if the problem persists.");
+        return JsonSerializer.Deserialize<T>(body, JsonOpts)
+            ?? throw new InvalidOperationException("Server returned an empty response.");
+    }
+
     public BaumAgentApiClient(CredentialService creds)
     {
         _creds = creds;
@@ -48,7 +60,7 @@ public class BaumAgentApiClient
         using var client = UnauthenticatedClient(baseUrl);
         var r = await client.GetAsync("api/health");
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<HealthResponse>(JsonOpts))!;
+        return await ReadJsonAsync<HealthResponse>(r);
     }
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -57,7 +69,7 @@ public class BaumAgentApiClient
     {
         var r = await Http().PostAsync("api/auth/pair/initiate", null);
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<PairInitiateResponse>(JsonOpts))!;
+        return await ReadJsonAsync<PairInitiateResponse>(r);
     }
 
     public async Task<PairCompleteResponse> CompletePairingAsync(string baseUrl, string code, string deviceName)
@@ -70,14 +82,14 @@ public class BaumAgentApiClient
             var text = await r.Content.ReadAsStringAsync();
             throw new InvalidOperationException($"Pairing failed ({(int)r.StatusCode}): {text}");
         }
-        return (await r.Content.ReadFromJsonAsync<PairCompleteResponse>(JsonOpts))!;
+        return await ReadJsonAsync<PairCompleteResponse>(r);
     }
 
     public async Task<List<ApiToken>> ListTokensAsync()
     {
         var r = await Http().GetAsync("api/auth/tokens");
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<List<ApiToken>>(JsonOpts))!;
+        return await ReadJsonAsync<List<ApiToken>>(r);
     }
 
     public async Task RevokeTokenAsync(string tokenId)
@@ -101,14 +113,14 @@ public class BaumAgentApiClient
     {
         var r = await Http().GetAsync($"api/tasks?page={page}&page_size={pageSize}");
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<TaskListResponse>(JsonOpts))!;
+        return await ReadJsonAsync<TaskListResponse>(r);
     }
 
     public async Task<BaumTask> GetTaskAsync(string taskId)
     {
         var r = await Http().GetAsync($"api/tasks/{taskId}");
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<BaumTask>(JsonOpts))!;
+        return await ReadJsonAsync<BaumTask>(r);
     }
 
     public async Task<BaumTask> CreateTaskAsync(
@@ -118,7 +130,9 @@ public class BaumAgentApiClient
         string llmModel = "claude-opus-4-6",
         string repoUrl = "",
         string baseBranch = "main",
-        string? projectId = null)
+        string? projectId = null,
+        string? targetOs = null,
+        string? difficulty = null)
     {
         var form = new MultipartFormDataContent
         {
@@ -129,19 +143,20 @@ public class BaumAgentApiClient
             { new StringContent(repoUrl), "repo_url" },
             { new StringContent(baseBranch), "base_branch" },
         };
-        if (projectId is not null)
-            form.Add(new StringContent(projectId), "project_id");
+        if (projectId is not null) form.Add(new StringContent(projectId), "project_id");
+        if (targetOs is not null) form.Add(new StringContent(targetOs), "target_os");
+        if (difficulty is not null) form.Add(new StringContent(difficulty), "difficulty");
 
         var r = await Http().PostAsync("api/tasks", form);
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<BaumTask>(JsonOpts))!;
+        return await ReadJsonAsync<BaumTask>(r);
     }
 
     public async Task<BaumTask> RetryTaskAsync(string taskId)
     {
         var r = await Http().PostAsync($"api/tasks/{taskId}/retry", null);
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<BaumTask>(JsonOpts))!;
+        return await ReadJsonAsync<BaumTask>(r);
     }
 
     public async Task CancelTaskAsync(string taskId)
@@ -161,15 +176,14 @@ public class BaumAgentApiClient
         var body = JsonContent.Create(new { source_task_id = sourceTaskId });
         var r = await Http().PostAsync("api/gitnexus/fix", body);
         r.EnsureSuccessStatusCode();
-        var result = await r.Content.ReadFromJsonAsync<FixTaskResponse>(JsonOpts);
-        return result!.TaskId;
+        return (await ReadJsonAsync<FixTaskResponse>(r)).TaskId;
     }
 
     public async Task<List<ExportFile>> ListExportsAsync(string taskId)
     {
         var r = await Http().GetAsync($"api/tasks/{taskId}/exports");
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<List<ExportFile>>(JsonOpts))!;
+        return await ReadJsonAsync<List<ExportFile>>(r);
     }
 
     public async Task<(Stream Stream, string Filename)> DownloadExportAsync(string taskId)
@@ -188,7 +202,7 @@ public class BaumAgentApiClient
     {
         var r = await Http().GetAsync("api/me");
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<User>(JsonOpts))!;
+        return await ReadJsonAsync<User>(r);
     }
 
     // ── Projects ──────────────────────────────────────────────────────────
@@ -197,7 +211,7 @@ public class BaumAgentApiClient
     {
         var r = await Http().GetAsync("api/projects");
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<List<Project>>(JsonOpts))!;
+        return await ReadJsonAsync<List<Project>>(r);
     }
 
     // ── Queue + Models ────────────────────────────────────────────────────
@@ -206,14 +220,14 @@ public class BaumAgentApiClient
     {
         var r = await Http().GetAsync("api/queue");
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<QueueStatus>(JsonOpts))!;
+        return await ReadJsonAsync<QueueStatus>(r);
     }
 
     public async Task<ModelsResponse> GetModelsAsync()
     {
         var r = await Http().GetAsync("api/models");
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<ModelsResponse>(JsonOpts))!;
+        return await ReadJsonAsync<ModelsResponse>(r);
     }
 
     // ── Settings ──────────────────────────────────────────────────────────
@@ -222,6 +236,6 @@ public class BaumAgentApiClient
     {
         var r = await Http().GetAsync("api/settings");
         r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<PortalSettings>(JsonOpts))!;
+        return await ReadJsonAsync<PortalSettings>(r);
     }
 }

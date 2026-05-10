@@ -1,6 +1,7 @@
 using BaumAgent.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Windows.System;
 
 namespace BaumAgent.Pages;
 
@@ -19,6 +20,13 @@ public sealed partial class TaskCreatePage : Page
     {
         var tag = (TypeBox.SelectedItem as ComboBoxItem)?.Tag as string;
         CodeOptions.Visibility = tag == "code" ? Visibility.Visible : Visibility.Collapsed;
+        InstructionsOptions.Visibility = tag == "instructions" ? Visibility.Visible : Visibility.Collapsed;
+        DescriptionBox.PlaceholderText = tag switch
+        {
+            "instructions" => "Describe the technology or process to write step-by-step instructions for…",
+            "code"         => "Describe what the agent should do in the repository…",
+            _              => "Describe the task…",
+        };
     }
 
     private async void Voice_Click(object sender, RoutedEventArgs e)
@@ -49,6 +57,9 @@ public sealed partial class TaskCreatePage : Page
         }
     }
 
+    private async void OpenSpeechSettings_Click(object sender, RoutedEventArgs e)
+        => await Launcher.LaunchUriAsync(new Uri("ms-settings:privacy-speech"));
+
     private async void Submit_Click(object sender, RoutedEventArgs e)
     {
         var description = DescriptionBox.Text.Trim();
@@ -69,6 +80,18 @@ public sealed partial class TaskCreatePage : Page
             return;
         }
 
+        string? targetOs = null;
+        string? difficulty = null;
+        if (taskType == "instructions")
+        {
+            var osList = new List<string>();
+            if (OsWindows.IsChecked == true) osList.Add("windows");
+            if (OsMacOS.IsChecked == true) osList.Add("macos");
+            if (OsLinux.IsChecked == true) osList.Add("linux");
+            targetOs = osList.Count > 0 ? string.Join(",", osList) : "windows";
+            difficulty = (DifficultyBox.SelectedItem as ComboBoxItem)?.Content as string ?? "Beginner";
+        }
+
         ErrorText.Text = "";
         SubmitBtn.IsEnabled = false;
         Spinner.IsActive = true;
@@ -81,7 +104,9 @@ public sealed partial class TaskCreatePage : Page
                 llmBackend: "anthropic",
                 llmModel: model,
                 repoUrl: taskType == "code" ? repoUrl : "",
-                baseBranch: taskType == "code" && !string.IsNullOrEmpty(baseBranch) ? baseBranch : "main");
+                baseBranch: taskType == "code" && !string.IsNullOrEmpty(baseBranch) ? baseBranch : "main",
+                targetOs: targetOs,
+                difficulty: difficulty);
 
             Frame.Navigate(typeof(TaskDetailPage), task.Id);
         }

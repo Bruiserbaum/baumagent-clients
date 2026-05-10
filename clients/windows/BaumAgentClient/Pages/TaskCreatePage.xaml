@@ -4,8 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Background="{StaticResource BaumBackgroundBrush}">
 
-    <ScrollViewer>
-        <StackPanel Margin="20" Spacing="16" MaxWidth="700">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="20" Spacing="16">
 
             <TextBlock Text="Create Task" FontSize="24" FontWeight="Bold"
                        Foreground="{StaticResource BaumTextBrush}"/>
@@ -21,44 +21,75 @@
                              MinHeight="100"
                              Foreground="{StaticResource BaumTextBrush}"/>
 
-                    <!-- Voice dictation button -->
-                    <StackPanel Orientation="Horizontal" Spacing="10">
+                    <!-- Voice dictation -->
+                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,2,0,0">
                         <Button x:Name="VoiceBtn" Content="🎤 Dictate"
                                 Click="Voice_Click"/>
+                        <Button Content="Speech settings" Click="OpenSpeechSettings_Click"
+                                Padding="8,4"
+                                Foreground="{StaticResource BaumSubtextBrush}"/>
                         <TextBlock x:Name="VoiceStatus" Text=""
                                    VerticalAlignment="Center" FontSize="12"
+                                   TextWrapping="Wrap" MaxWidth="300"
                                    Foreground="{StaticResource BaumSubtextBrush}"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <!-- Task type + LLM -->
+            <!-- Task type -->
             <Border Style="{StaticResource CardStyle}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="Task type" FontWeight="SemiBold"
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Task type" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <ComboBox x:Name="TypeBox" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="Research" Tag="research" IsSelected="True"/>
+                        <ComboBoxItem Content="Deep Research" Tag="deep_research"/>
+                        <ComboBoxItem Content="Instructions (.docx)" Tag="instructions"/>
+                        <ComboBoxItem Content="Script (local)" Tag="coding"/>
+                        <ComboBoxItem Content="Code (GitHub)" Tag="code"/>
+                        <ComboBoxItem Content="Structured Document" Tag="structured_document"/>
+                    </ComboBox>
+                </StackPanel>
+            </Border>
+
+            <!-- LLM model -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="LLM model" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <ComboBox x:Name="ModelBox" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="claude-opus-4-6" IsSelected="True"/>
+                        <ComboBoxItem Content="claude-sonnet-4-6"/>
+                        <ComboBoxItem Content="claude-haiku-4-5-20251001"/>
+                    </ComboBox>
+                </StackPanel>
+            </Border>
+
+            <!-- Instructions options: OS + difficulty -->
+            <Border x:Name="InstructionsOptions" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                <StackPanel Spacing="12">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Target OS" FontWeight="SemiBold"
                                    Foreground="{StaticResource BaumTextBrush}"/>
-                        <ComboBox x:Name="TypeBox" HorizontalAlignment="Stretch">
-                            <ComboBoxItem Content="Research" Tag="research" IsSelected="True"/>
-                            <ComboBoxItem Content="Deep Research" Tag="deep_research"/>
-                            <ComboBoxItem Content="Code (GitHub)" Tag="code"/>
-                            <ComboBoxItem Content="Structured Document" Tag="structured_document"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <CheckBox x:Name="OsWindows" Content="Windows" IsChecked="True"
+                                      Foreground="{StaticResource BaumTextBrush}"/>
+                            <CheckBox x:Name="OsMacOS" Content="macOS" IsChecked="True"
+                                      Foreground="{StaticResource BaumTextBrush}"/>
+                            <CheckBox x:Name="OsLinux" Content="Linux"
+                                      Foreground="{StaticResource BaumTextBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Difficulty" FontWeight="SemiBold"
+                                   Foreground="{StaticResource BaumTextBrush}"/>
+                        <ComboBox x:Name="DifficultyBox" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="Beginner" IsSelected="True"/>
+                            <ComboBoxItem Content="Intermediate"/>
+                            <ComboBoxItem Content="Advanced"/>
                         </ComboBox>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Spacing="8" Margin="16,0,0,0">
-                        <TextBlock Text="LLM model" FontWeight="SemiBold"
-                                   Foreground="{StaticResource BaumTextBrush}"/>
-                        <ComboBox x:Name="ModelBox" HorizontalAlignment="Stretch">
-                            <ComboBoxItem Content="claude-opus-4-6" IsSelected="True"/>
-                            <ComboBoxItem Content="claude-sonnet-4-6"/>
-                            <ComboBoxItem Content="claude-haiku-4-5-20251001"/>
-                        </ComboBox>
-                    </StackPanel>
-                </Grid>
+                </StackPanel>
             </Border>
 
             <!-- Code task: repo URL -->
@@ -75,14 +106,17 @@
             </Border>
 
             <!-- Submit -->
-            <StackPanel Orientation="Horizontal" Spacing="12">
+            <StackPanel Spacing="8">
                 <Button x:Name="SubmitBtn" Content="Create task →"
                         Style="{StaticResource AccentButtonStyle}"
+                        HorizontalAlignment="Left"
                         Click="Submit_Click"/>
-                <ProgressRing x:Name="Spinner" IsActive="False" Width="24" Height="24"/>
-                <TextBlock x:Name="ErrorText" Text="" VerticalAlignment="Center"
-                           Foreground="{StaticResource BaumDangerBrush}" FontSize="13"
-                           TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <ProgressRing x:Name="Spinner" IsActive="False" Width="24" Height="24"/>
+                    <TextBlock x:Name="ErrorText" Text="" VerticalAlignment="Center"
+                               Foreground="{StaticResource BaumDangerBrush}" FontSize="13"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
             </StackPanel>
 
         </StackPanel>

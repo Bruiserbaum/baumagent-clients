@@ -35,10 +35,7 @@ public sealed partial class HistoryPage : Page
 
         try
         {
-            // Load projects
-            var projects = await _api.ListProjectsAsync();
-
-            // Load up to 200 most recent tasks and keep only terminal ones
+            // Load tasks first (essential)
             var response = await _api.ListTasksAsync(page: 1, pageSize: 200);
             var terminal = response.Items
                 .Where(t => t.IsTerminal)
@@ -46,20 +43,28 @@ public sealed partial class HistoryPage : Page
 
             _allRows = terminal.Select(t => new HistoryTaskRow(t)).ToList();
 
-            // Build project cards with task counts
-            var projectCards = projects
-                .OrderBy(p => p.Position)
-                .Select(p => new ProjectCard(
-                    p.Id, p.Name, p.Color,
-                    terminal.Count(t => t.ProjectId == p.Id)))
-                .ToList();
-
-            if (projectCards.Count > 0)
+            // Load projects (non-fatal if endpoint is unavailable)
+            try
             {
-                ProjectsList.ItemsSource = projectCards;
-                ProjectsPanel.Visibility = Visibility.Visible;
+                var projects = await _api.ListProjectsAsync();
+                var projectCards = projects
+                    .OrderBy(p => p.Position)
+                    .Select(p => new ProjectCard(
+                        p.Id, p.Name, p.Color,
+                        terminal.Count(t => t.ProjectId == p.Id)))
+                    .ToList();
+
+                if (projectCards.Count > 0)
+                {
+                    ProjectsList.ItemsSource = projectCards;
+                    ProjectsPanel.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    ProjectsPanel.Visibility = Visibility.Collapsed;
+                }
             }
-            else
+            catch
             {
                 ProjectsPanel.Visibility = Visibility.Collapsed;
             }
