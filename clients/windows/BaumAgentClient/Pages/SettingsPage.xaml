@@ -92,15 +92,41 @@
                 </StackPanel>
             </Border>
 
-            <!-- About -->
+            <!-- About + Updates -->
             <Border Style="{StaticResource CardStyle}">
-                <StackPanel Spacing="8">
+                <StackPanel Spacing="12">
                     <TextBlock Text="About" FontWeight="SemiBold"
                                Foreground="{StaticResource BaumTextBrush}"/>
-                    <TextBlock Text="BaumAgent Windows Client v1.0.0" FontSize="13"
-                               Foreground="{StaticResource BaumSubtextBrush}"/>
-                    <TextBlock Text="WinUI 3 · Unpackaged · net8.0-windows10.0.22621.0" FontSize="12"
-                               Foreground="{StaticResource BaumSubtextBrush}"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Name="VersionText" FontSize="13"
+                                       Foreground="{StaticResource BaumTextBrush}"/>
+                            <TextBlock Text="WinUI 3 · Unpackaged · net8.0-windows10.0.22621.0"
+                                       FontSize="12" Foreground="{StaticResource BaumSubtextBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Update row -->
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <Button x:Name="CheckUpdateBtn" Content="Check for Updates"
+                                Click="CheckUpdate_Click" Padding="10,5"/>
+                        <TextBlock x:Name="UpdateStatusText" Text="" FontSize="13"
+                                   Foreground="{StaticResource BaumSubtextBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Install update button (hidden until update found) -->
+                    <StackPanel x:Name="InstallUpdatePanel" Visibility="Collapsed" Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button x:Name="InstallUpdateBtn" Content="Download &amp; Install"
+                                    Click="InstallUpdate_Click"
+                                    Style="{StaticResource AccentButtonStyle}" Padding="12,6"/>
+                            <TextBlock x:Name="UpdateProgressText" Text="" FontSize="12"
+                                       Foreground="{StaticResource BaumSubtextBrush}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

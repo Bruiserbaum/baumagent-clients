@@ -9,6 +9,8 @@ public sealed partial class SettingsPage : Page
 {
     private readonly BaumAgentApiClient _api = App.GetService<BaumAgentApiClient>();
     private readonly CredentialService _creds = App.GetService<CredentialService>();
+    private readonly UpdateService _updater = new();
+    private UpdateInfo? _pendingUpdate;
 
     public SettingsPage() => InitializeComponent();
 
@@ -18,6 +20,10 @@ public sealed partial class SettingsPage : Page
         UserDisplayText.Text = _creds.GetUserDisplayName() ?? "";
         UserEmailText.Text = _creds.GetUserEmail() ?? "";
         ServerUrlText.Text = url;
+
+        var v = UpdateService.CurrentVersion;
+        VersionText.Text = $"BaumAgent Windows Client v{v.Major}.{v.Minor}.{v.Build}";
+
         await LoadTokensAsync();
     }
 
@@ -86,7 +92,6 @@ public sealed partial class SettingsPage : Page
 
         try
         {
-            // Best-effort: revoke all tokens for this user before clearing local credentials
             var tokens = await _api.ListTokensAsync();
             foreach (var t in tokens)
                 await _api.RevokeTokenAsync(t.Id);
@@ -96,6 +101,62 @@ public sealed partial class SettingsPage : Page
         _creds.Clear();
         _api.Reconfigure();
         Frame.Navigate(typeof(PairingPage));
+    }
+
+    private async void CheckUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateBtn.IsEnabled = false;
+        UpdateStatusText.Text = "Checking…";
+        InstallUpdatePanel.Visibility = Visibility.Collapsed;
+        _pendingUpdate = null;
+
+        try
+        {
+            var update = await _updater.CheckForUpdateAsync();
+            if (update is null)
+            {
+                UpdateStatusText.Text = "You're up to date.";
+            }
+            else
+            {
+                _pendingUpdate = update;
+                UpdateStatusText.Text = $"v{update.Version} is available!";
+                UpdateStatusText.Foreground = (Microsoft.UI.Xaml.Media.Brush)
+                    App.Current.Resources["BaumSuccessBrush"];
+                InstallUpdatePanel.Visibility = Visibility.Visible;
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = $"Check failed: {ex.Message}";
+        }
+        finally
+        {
+            CheckUpdateBtn.IsEnabled = true;
+        }
+    }
+
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate is null) return;
+        InstallUpdateBtn.IsEnabled = false;
+        CheckUpdateBtn.IsEnabled = false;
+        UpdateProgressText.Text = "Downloading…";
+
+        try
+        {
+            await _updater.DownloadAndInstallAsync(_pendingUpdate, new Progress<int>(pct =>
+            {
+                UpdateProgressText.Text = $"Downloading… {pct}%";
+            }));
+            // App will exit and relaunch after install — nothing to do here
+        }
+        catch (Exception ex)
+        {
+            UpdateProgressText.Text = $"Failed: {ex.Message}";
+            InstallUpdateBtn.IsEnabled = true;
+            CheckUpdateBtn.IsEnabled = true;
+        }
     }
 }
 

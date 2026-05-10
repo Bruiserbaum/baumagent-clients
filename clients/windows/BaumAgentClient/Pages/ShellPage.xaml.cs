@@ -66,6 +66,7 @@ public sealed partial class ShellPage : Page
         {
             "TaskList"   => ContentFrame.Navigate(typeof(TaskListPage)),
             "TaskCreate" => ContentFrame.Navigate(typeof(TaskCreatePage)),
+            "History"    => ContentFrame.Navigate(typeof(HistoryPage)),
             _            => false,
         };
     }

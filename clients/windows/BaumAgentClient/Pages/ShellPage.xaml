@@ -35,6 +35,7 @@
         <NavigationView.MenuItems>
             <NavigationViewItem Content="Tasks" Tag="TaskList" Icon="List" />
             <NavigationViewItem Content="Create task" Tag="TaskCreate" Icon="Add" />
+            <NavigationViewItem Content="History" Tag="History" Icon="Clock" />
         </NavigationView.MenuItems>
 
         <!-- User header in pane -->

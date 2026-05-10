@@ -72,10 +72,18 @@ public class UpdateService
 
         dest.Close();
 
-        // Run installer silently, then exit this instance
+        // Run installer silently, wait for it to finish, then relaunch the new version
         var proc = Process.Start(new ProcessStartInfo(tempPath, "/S") { UseShellExecute = true });
         if (proc is null) throw new InvalidOperationException("Failed to launch installer.");
-        await Task.Delay(500); // brief pause so installer process is established
+        await proc.WaitForExitAsync();
+
+        // Relaunch from the default install location
+        var exePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            "BaumAgent", "BaumAgentClient.exe");
+        if (File.Exists(exePath))
+            Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
+
         Microsoft.UI.Xaml.Application.Current.Exit();
     }
 }
