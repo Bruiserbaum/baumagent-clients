@@ -37,10 +37,6 @@
             <NavigationViewItem Content="Create task" Tag="TaskCreate" Icon="Add" />
         </NavigationView.MenuItems>
 
-        <NavigationView.FooterMenuItems>
-            <NavigationViewItem Content="Settings" Tag="Settings" Icon="Setting" />
-        </NavigationView.FooterMenuItems>
-
         <!-- User header in pane -->
         <NavigationView.PaneHeader>
             <StackPanel Padding="16,12">

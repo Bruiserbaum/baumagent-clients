@@ -64,10 +64,9 @@ public sealed partial class ShellPage : Page
         var tag = (args.SelectedItem as NavigationViewItem)?.Tag?.ToString();
         _ = tag switch
         {
-            "TaskList" => ContentFrame.Navigate(typeof(TaskListPage)),
+            "TaskList"   => ContentFrame.Navigate(typeof(TaskListPage)),
             "TaskCreate" => ContentFrame.Navigate(typeof(TaskCreatePage)),
-            "Settings" => ContentFrame.Navigate(typeof(SettingsPage)),
-            _ => false,
+            _            => false,
         };
     }
 

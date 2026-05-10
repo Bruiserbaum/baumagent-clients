@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using BaumAgent.Pages;
 using BaumAgent.Services;
 using Microsoft.UI;
@@ -9,6 +10,9 @@ namespace BaumAgent;
 
 public sealed partial class MainWindow : Window
 {
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hwnd);
+
     public MainWindow()
     {
         try
@@ -27,8 +31,16 @@ public sealed partial class MainWindow : Window
     private void SetupWindow()
     {
         var appWindow = AppWindow;
-        appWindow.Resize(new SizeInt32(1100, 720));
+
+        // AppWindow.Resize takes physical pixels; scale by DPI so the window
+        // is always 1100×720 device-independent pixels regardless of display scale.
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var dpi   = GetDpiForWindow(hwnd);
+        var scale = (double)dpi / 96.0;
+        appWindow.Resize(new SizeInt32((int)(1100 * scale), (int)(720 * scale)));
+
         appWindow.Title = "BaumAgent";
+        appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
 
         if (AppWindowTitleBar.IsCustomizationSupported())
         {

@@ -21,29 +21,47 @@ public class VoiceService : IDisposable
     /// <summary>Show the system speech UI and return the recognised text, or null if cancelled/failed.</summary>
     public async Task<string?> DictateAsync()
     {
-        _recognizer?.Dispose();
-        _recognizer = new SpeechRecognizer();
-
-        var dictationConstraint = new SpeechRecognitionTopicConstraint(
-            SpeechRecognitionScenario.Dictation, "dictation");
-        _recognizer.Constraints.Add(dictationConstraint);
-        await _recognizer.CompileConstraintsAsync();
-
-        _recognizer.HypothesisGenerated += (_, e) =>
-            PartialResultReceived?.Invoke(e.Hypothesis.Text);
-
-        _listening = true;
-        var session = await _recognizer.RecognizeWithUIAsync();
-        _listening = false;
-
-        if (session.Status == SpeechRecognitionResultStatus.Success)
+        try
         {
-            FinalResultReceived?.Invoke(session.Text);
-            return session.Text;
+            _recognizer?.Dispose();
+            _recognizer = new SpeechRecognizer();
+
+            var dictationConstraint = new SpeechRecognitionTopicConstraint(
+                SpeechRecognitionScenario.Dictation, "dictation");
+            _recognizer.Constraints.Add(dictationConstraint);
+            await _recognizer.CompileConstraintsAsync();
+
+            _recognizer.HypothesisGenerated += (_, e) =>
+                PartialResultReceived?.Invoke(e.Hypothesis.Text);
+
+            _listening = true;
+            var session = await _recognizer.RecognizeWithUIAsync();
+            _listening = false;
+
+            if (session.Status == SpeechRecognitionResultStatus.Success)
+            {
+                FinalResultReceived?.Invoke(session.Text);
+                return session.Text;
+            }
+            if (session.Status != SpeechRecognitionResultStatus.UserCanceled)
+                ErrorOccurred?.Invoke($"Speech recognition failed: {session.Status}");
+            return null;
         }
-        if (session.Status != SpeechRecognitionResultStatus.UserCanceled)
-            ErrorOccurred?.Invoke($"Speech recognition failed: {session.Status}");
-        return null;
+        catch (Exception ex)
+        {
+            _listening = false;
+            // Common COM/WinRT error codes for speech failures
+            var hr = (uint)ex.HResult;
+            var friendly = hr switch
+            {
+                0x80045509 => "Microphone not found. Check that a microphone is connected and allowed.",
+                0x80131509 or 0x8004503A => "Windows Speech Recognition is not set up. " +
+                    "Go to Settings → Time & Language → Speech and enable Online speech recognition.",
+                _ => "Speech recognition is unavailable. Enable it in Settings → Privacy & Security → Speech, " +
+                     "then ensure microphone access is granted to this app.",
+            };
+            throw new InvalidOperationException(friendly, ex);
+        }
     }
 
     public async Task StartAsync()
