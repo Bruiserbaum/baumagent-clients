@@ -34,22 +34,24 @@
                 </StackPanel>
             </Border>
 
-            <!-- Step 2: API Token -->
+            <!-- Step 2: Pairing code -->
             <Border x:Name="PairStep" Style="{StaticResource CardStyle}" Opacity="0.4">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Step 2 — API Token" FontWeight="SemiBold"
+                    <TextBlock Text="Step 2 — Pairing code" FontWeight="SemiBold"
                                Foreground="{StaticResource BaumTextBrush}"/>
                     <TextBlock FontSize="13" Foreground="{StaticResource BaumSubtextBrush}"
                                TextWrapping="Wrap">
-                        In the BaumAgent web UI open browser DevTools (F12) → Network tab,
-                        click any request and copy the value after "Bearer " in the
-                        Authorization header. Paste it below.
+                        In the BaumAgent web UI: Settings → Pair New Device → Generate Pairing Code.
+                        Paste the code below. It expires in 5 minutes.
                     </TextBlock>
-                    <PasswordBox x:Name="TokenBox" PlaceholderText="Paste API token here"/>
+                    <TextBox x:Name="CodeBox" PlaceholderText="Paste pairing code here"
+                             Foreground="{StaticResource BaumTextBrush}"
+                             FontFamily="Cascadia Code, Consolas, Courier New"
+                             FontSize="18" CharacterSpacing="200"/>
                     <TextBox x:Name="DeviceNameBox" PlaceholderText="Device name (e.g. My Desktop)"
                              Text="Windows PC"
                              Foreground="{StaticResource BaumTextBrush}"/>
-                    <Button x:Name="PairButton" Content="Connect"
+                    <Button x:Name="PairButton" Content="Pair device"
                             HorizontalAlignment="Stretch" Click="Pair_Click"
                             IsEnabled="False"/>
                     <TextBlock x:Name="PairStatus" Text="" FontSize="12"
