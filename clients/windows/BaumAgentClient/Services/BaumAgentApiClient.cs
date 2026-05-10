@@ -156,6 +156,15 @@ public class BaumAgentApiClient
         r.EnsureSuccessStatusCode();
     }
 
+    public async Task<string> FixHealthScanAsync(string sourceTaskId)
+    {
+        var body = JsonContent.Create(new { source_task_id = sourceTaskId });
+        var r = await Http().PostAsync("api/gitnexus/fix", body);
+        r.EnsureSuccessStatusCode();
+        var result = await r.Content.ReadFromJsonAsync<FixTaskResponse>(JsonOpts);
+        return result!.TaskId;
+    }
+
     public async Task<List<ExportFile>> ListExportsAsync(string taskId)
     {
         var r = await Http().GetAsync($"api/tasks/{taskId}/exports");

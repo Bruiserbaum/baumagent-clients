@@ -152,3 +152,7 @@ public record WsDonePayload(
     [property: JsonPropertyName("output_file")] string? OutputFile,
     [property: JsonPropertyName("pr_url")] string? PrUrl,
     [property: JsonPropertyName("error")] string? Error);
+
+public record FixTaskResponse(
+    [property: JsonPropertyName("task_id")] string TaskId,
+    [property: JsonPropertyName("repo_url")] string RepoUrl);

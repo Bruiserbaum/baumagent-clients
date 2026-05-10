@@ -86,6 +86,11 @@ public sealed partial class TaskDetailPage : Page
         CancelBtn.IsEnabled = t.Status is "queued" or "running";
         RetryBtn.IsEnabled = t.IsTerminal;
         DownloadBtn.IsEnabled = t.IsTerminal && t.TaskType != "code";
+
+        bool isHealthScan = t.Description?.StartsWith("[Health Scan]", StringComparison.Ordinal) == true;
+        FixIssuesPanel.Visibility = isHealthScan && t.Status == "complete"
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void StartLogStream()
@@ -236,6 +241,25 @@ public sealed partial class TaskDetailPage : Page
         catch (Exception ex)
         {
             await ShowError("Download failed", ex.Message);
+        }
+    }
+
+    private async void FixIssues_Click(object sender, RoutedEventArgs e)
+    {
+        if (_taskId is null) return;
+        FixIssuesBtn.IsEnabled = false;
+        FixStatusText.Text = "Creating fix task…";
+        FixStatusText.Visibility = Visibility.Visible;
+        try
+        {
+            var newTaskId = await _api.FixHealthScanAsync(_taskId);
+            FixStatusText.Text = $"Fix task queued — find it in the task list tagged [Health Fix].";
+            FixIssuesBtn.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception ex)
+        {
+            FixStatusText.Text = $"Failed: {ex.Message}";
+            FixIssuesBtn.IsEnabled = true;
         }
     }
 

@@ -8,6 +8,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -46,8 +47,31 @@
             <HyperlinkButton x:Name="PrLink" Content="" Visibility="Collapsed"/>
         </StackPanel>
 
+        <!-- Health scan fix banner (visible only for completed [Health Scan] tasks) -->
+        <Border Grid.Row="2" x:Name="FixIssuesPanel" Visibility="Collapsed"
+                Background="#1a0d2e" BorderBrush="#6d28d9" BorderThickness="1"
+                CornerRadius="8" Padding="14,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Audit complete — grant permission to fix all found issues?"
+                               Foreground="#c4b5fd" FontWeight="SemiBold" FontSize="14"/>
+                    <TextBlock x:Name="FixStatusText" Text="" Foreground="#94a3b8"
+                               FontSize="12" Margin="0,4,0,0" Visibility="Collapsed"/>
+                </StackPanel>
+                <Button Grid.Column="1" x:Name="FixIssuesBtn" Content="⚡ Fix Issues"
+                        Click="FixIssues_Click" IsEnabled="True"
+                        Background="#5b21b6" Foreground="#ede9fe"
+                        BorderBrush="#7c3aed" BorderThickness="1"
+                        Padding="16,8" FontWeight="Bold" CornerRadius="6"/>
+            </Grid>
+        </Border>
+
         <!-- Live log -->
-        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="0">
+        <Border Grid.Row="3" Style="{StaticResource CardStyle}" Padding="0">
             <ScrollViewer x:Name="LogScroll" VerticalScrollBarVisibility="Auto">
                 <TextBlock x:Name="LogText" Style="{StaticResource MonoTextStyle}"
                            Padding="16" TextWrapping="Wrap" IsTextSelectionEnabled="True"
@@ -56,7 +80,7 @@
         </Border>
 
         <!-- Exports list (shown after completion if exports exist) -->
-        <Border Grid.Row="3" x:Name="ExportsPanel" Visibility="Collapsed"
+        <Border Grid.Row="4" x:Name="ExportsPanel" Visibility="Collapsed"
                 Style="{StaticResource CardStyle}" Margin="0,12,0,0">
             <StackPanel Spacing="8">
                 <TextBlock Text="Exports" FontWeight="SemiBold"
