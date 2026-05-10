@@ -73,7 +73,9 @@ public class UpdateService
         dest.Close();
 
         // Run installer silently, then exit this instance
-        Process.Start(new ProcessStartInfo(tempPath, "/S") { UseShellExecute = true });
+        var proc = Process.Start(new ProcessStartInfo(tempPath, "/S") { UseShellExecute = true });
+        if (proc is null) throw new InvalidOperationException("Failed to launch installer.");
+        await Task.Delay(500); // brief pause so installer process is established
         Microsoft.UI.Xaml.Application.Current.Exit();
     }
 }

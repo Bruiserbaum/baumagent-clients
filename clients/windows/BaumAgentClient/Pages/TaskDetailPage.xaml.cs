@@ -91,6 +91,8 @@ public sealed partial class TaskDetailPage : Page
     private void StartLogStream()
     {
         if (_taskId is null) return;
+        // Cancel any previous stream before starting a new one (e.g. on Retry)
+        _wsCts?.Cancel();
         _wsCts = new CancellationTokenSource();
         var ct = _wsCts.Token;
 

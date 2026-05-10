@@ -102,7 +102,9 @@ public sealed partial class SettingsPage : Page
 internal record TokenRow(ApiToken Token)
 {
     public string Id => Token.Id;
-    public string Label => string.IsNullOrEmpty(Token.Name) ? $"Token …{Token.Id[^8..]}" : Token.Name;
+    public string Label => string.IsNullOrEmpty(Token.Name)
+        ? $"Token …{Token.Id[^Math.Min(8, Token.Id.Length)..]}"
+        : Token.Name;
     public string CreatedDisplay => $"Created {Token.CreatedAt.ToLocalTime():MMM d, yyyy}";
     public string LastUsedDisplay => Token.LastUsedAt is null
         ? "Never used"

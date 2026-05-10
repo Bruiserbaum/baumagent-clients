@@ -36,6 +36,7 @@ public sealed partial class MainWindow : Window
         // is always 1100×720 device-independent pixels regardless of display scale.
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         var dpi   = GetDpiForWindow(hwnd);
+        if (dpi == 0) dpi = 96; // fallback if P/Invoke fails
         var scale = (double)dpi / 96.0;
         appWindow.Resize(new SizeInt32((int)(1100 * scale), (int)(720 * scale)));
 
