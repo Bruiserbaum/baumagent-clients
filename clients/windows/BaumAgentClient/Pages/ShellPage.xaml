@@ -30,7 +30,6 @@
         IsBackEnabled="{x:Bind ContentFrame.CanGoBack, Mode=OneWay}"
         BackRequested="NavView_BackRequested"
         SelectionChanged="NavView_SelectionChanged"
-        PaneBackground="{StaticResource BaumSurfaceBrush}"
         Background="{StaticResource BaumBackgroundBrush}">
 
         <NavigationView.MenuItems>

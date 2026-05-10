@@ -34,22 +34,22 @@
                 </StackPanel>
             </Border>
 
-            <!-- Step 2: Pairing code -->
+            <!-- Step 2: API Token -->
             <Border x:Name="PairStep" Style="{StaticResource CardStyle}" Opacity="0.4">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Step 2 — Pairing code" FontWeight="SemiBold"
+                    <TextBlock Text="Step 2 — API Token" FontWeight="SemiBold"
                                Foreground="{StaticResource BaumTextBrush}"/>
                     <TextBlock FontSize="13" Foreground="{StaticResource BaumSubtextBrush}"
                                TextWrapping="Wrap">
-                        In the BaumAgent web UI: Settings → Pair New Device.
-                        Scan the QR code or paste the code below.
+                        In the BaumAgent web UI open browser DevTools (F12) → Network tab,
+                        click any request and copy the value after "Bearer " in the
+                        Authorization header. Paste it below.
                     </TextBlock>
-                    <TextBox x:Name="CodeBox" PlaceholderText="Paste pairing code here"
-                             Foreground="{StaticResource BaumTextBrush}"/>
+                    <PasswordBox x:Name="TokenBox" PlaceholderText="Paste API token here"/>
                     <TextBox x:Name="DeviceNameBox" PlaceholderText="Device name (e.g. My Desktop)"
                              Text="Windows PC"
                              Foreground="{StaticResource BaumTextBrush}"/>
-                    <Button x:Name="PairButton" Content="Pair device"
+                    <Button x:Name="PairButton" Content="Connect"
                             HorizontalAlignment="Stretch" Click="Pair_Click"
                             IsEnabled="False"/>
                     <TextBlock x:Name="PairStatus" Text="" FontSize="12"

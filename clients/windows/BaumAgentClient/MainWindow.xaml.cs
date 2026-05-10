@@ -11,9 +11,17 @@ public sealed partial class MainWindow : Window
 {
     public MainWindow()
     {
-        InitializeComponent();
-        SetupWindow();
-        NavigateToStartPage();
+        try
+        {
+            InitializeComponent();
+            SetupWindow();
+            NavigateToStartPage();
+        }
+        catch (Exception ex)
+        {
+            App.Log("MainWindow.ctor", ex);
+            throw;
+        }
     }
 
     private void SetupWindow()
@@ -26,8 +34,25 @@ public sealed partial class MainWindow : Window
         {
             var titleBar = appWindow.TitleBar;
             titleBar.ExtendsContentIntoTitleBar = false;
-            titleBar.ButtonBackgroundColor = Colors.Transparent;
-            titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+
+            var bg      = Windows.UI.Color.FromArgb(255, 15,  23,  42);   // #0f172a
+            var surface = Windows.UI.Color.FromArgb(255, 22,  33,  62);   // #16213e
+            var text    = Windows.UI.Color.FromArgb(255, 226, 232, 240);  // #e2e8f0
+            var sub     = Windows.UI.Color.FromArgb(255, 100, 116, 139);  // #64748b
+            var accent  = Windows.UI.Color.FromArgb(255, 59,  130, 246);  // #3b82f6
+
+            titleBar.BackgroundColor               = bg;
+            titleBar.InactiveBackgroundColor       = bg;
+            titleBar.ForegroundColor               = text;
+            titleBar.InactiveForegroundColor       = sub;
+            titleBar.ButtonBackgroundColor         = bg;
+            titleBar.ButtonInactiveBackgroundColor = bg;
+            titleBar.ButtonForegroundColor         = text;
+            titleBar.ButtonInactiveForegroundColor = sub;
+            titleBar.ButtonHoverBackgroundColor    = surface;
+            titleBar.ButtonHoverForegroundColor    = text;
+            titleBar.ButtonPressedBackgroundColor  = accent;
+            titleBar.ButtonPressedForegroundColor  = Windows.UI.Color.FromArgb(255, 255, 255, 255);
         }
 
         if (Content is FrameworkElement fe)

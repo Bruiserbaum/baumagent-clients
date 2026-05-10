@@ -22,6 +22,8 @@ Unicode True
 
 ; Modern UI
 !include "MUI2.nsh"
+!define MUI_ICON                "publish\Assets\app.ico"
+!define MUI_UNICON              "publish\Assets\app.ico"
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE   "Install ${APPNAME} ${VERSION}"
 !define MUI_WELCOMEPAGE_TEXT    "This will install ${APPNAME} on your computer.$\n$\nClick Next to continue."
@@ -48,10 +50,10 @@ Section "Main" SecMain
     DetailPrint "Checking Windows App Runtime…"
     nsExec::ExecToStack '"$INSTDIR\WindowsAppRuntimeInstall.exe" --quiet'
 
-    ; Shortcuts
-    CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\${EXENAME}"
+    ; Shortcuts (with icon)
+    CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\${EXENAME}" "" "$INSTDIR\Assets\app.ico"
     CreateDirectory "$SMPROGRAMS\${APPNAME}"
-    CreateShortcut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\${EXENAME}"
+    CreateShortcut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\${EXENAME}" "" "$INSTDIR\Assets\app.ico"
     CreateShortcut "$SMPROGRAMS\${APPNAME}\Uninstall ${APPNAME}.lnk" "$INSTDIR\Uninstall.exe"
 
     ; Uninstall registry entries
