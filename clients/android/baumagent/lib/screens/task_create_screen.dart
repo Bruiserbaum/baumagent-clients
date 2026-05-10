@@ -20,12 +20,20 @@ class _TaskCreateScreenState extends ConsumerState<TaskCreateScreen> {
   bool _listening = false;
   String? _error;
 
+  // Instructions options
+  final Set<String> _targetOs = {'windows', 'macos'};
+  String _difficulty = 'Beginner';
+
   static const _taskTypes = [
     ('research', 'Research'),
     ('deep_research', 'Deep Research'),
+    ('instructions', 'Instructions (.docx)'),
+    ('coding', 'Script (local)'),
     ('code', 'Code (GitHub)'),
-    ('structured_document', 'Structured Document'),
+    ('structured_document', 'Plan / Proposal'),
   ];
+
+  static const _difficulties = ['Beginner', 'Intermediate', 'Advanced'];
 
   static const _models = [
     'claude-opus-4-6',
@@ -71,6 +79,8 @@ class _TaskCreateScreenState extends ConsumerState<TaskCreateScreen> {
         llmModel: _model,
         repoUrl: _taskType == 'code' ? _repoCtrl.text.trim() : '',
         baseBranch: _taskType == 'code' ? _branchCtrl.text.trim() : 'main',
+        targetOs: _taskType == 'instructions' ? _targetOs.join(',') : null,
+        difficulty: _taskType == 'instructions' ? _difficulty : null,
       );
       if (mounted) {
         Navigator.of(context).push(
@@ -107,9 +117,13 @@ class _TaskCreateScreenState extends ConsumerState<TaskCreateScreen> {
                   TextField(
                     controller: _descCtrl,
                     maxLines: 5,
-                    decoration: const InputDecoration(
-                      hintText: 'Describe the task…',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: _taskType == 'instructions'
+                          ? 'Describe the technology or process to write step-by-step instructions for…'
+                          : _taskType == 'code'
+                              ? 'Describe what the agent should do in the repository…'
+                              : 'Describe the task…',
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -166,6 +180,44 @@ class _TaskCreateScreenState extends ConsumerState<TaskCreateScreen> {
               ]),
             ),
             const SizedBox(height: 12),
+
+            // Instructions options
+            if (_taskType == 'instructions')
+              _SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Target OS', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final os in [('windows', 'Windows'), ('macos', 'macOS'), ('linux', 'Linux')])
+                          FilterChip(
+                            label: Text(os.$2),
+                            selected: _targetOs.contains(os.$1),
+                            onSelected: (v) => setState(() {
+                              if (v) _targetOs.add(os.$1); else _targetOs.remove(os.$1);
+                            }),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Difficulty', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: _difficulty,
+                      items: _difficulties
+                          .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _difficulty = v!),
+                      decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (_taskType == 'instructions') const SizedBox(height: 12),
 
             // Code options
             if (_taskType == 'code')

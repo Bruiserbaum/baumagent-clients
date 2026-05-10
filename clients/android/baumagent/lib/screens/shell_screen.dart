@@ -4,6 +4,7 @@ import '../providers/providers.dart';
 import 'task_list_screen.dart';
 import 'task_create_screen.dart';
 import 'settings_screen.dart';
+import 'history_screen.dart';
 
 class ShellScreen extends ConsumerStatefulWidget {
   const ShellScreen({super.key});
@@ -18,6 +19,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
   static const _screens = [
     TaskListScreen(),
     TaskCreateScreen(),
+    HistoryScreen(),
     SettingsScreen(),
   ];
 
@@ -31,6 +33,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.list_alt), label: 'Tasks'),
           NavigationDestination(icon: Icon(Icons.add_circle_outline), label: 'Create'),
+          NavigationDestination(icon: Icon(Icons.history), label: 'History'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
       ),

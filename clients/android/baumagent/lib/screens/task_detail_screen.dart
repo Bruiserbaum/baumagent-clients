@@ -23,6 +23,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   final _scrollCtrl = ScrollController();
   bool _loading = true;
   String? _error;
+  bool _fixLoading = false;
+  String? _fixTaskId;
+  String? _fixError;
 
   @override
   void initState() {
@@ -121,6 +124,18 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     }
   }
 
+  Future<void> _fixIssues() async {
+    setState(() { _fixLoading = true; _fixError = null; });
+    try {
+      final result = await ref.read(apiServiceProvider).fixHealthScan(widget.taskId);
+      setState(() { _fixTaskId = result.taskId; });
+    } catch (e) {
+      setState(() { _fixError = e.toString(); });
+    } finally {
+      setState(() { _fixLoading = false; });
+    }
+  }
+
   void _showError(String title, String msg) {
     showDialog(
       context: context,
@@ -176,6 +191,72 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                       onTap: () => launchUrl(Uri.parse(task.prUrl!)),
                     ),
 
+                  // Fix Issues banner (health scan tasks only)
+                  if (task != null &&
+                      task.description.startsWith('[Health Scan]') &&
+                      _liveStatus == 'complete' &&
+                      _fixTaskId == null)
+                    _buildFixIssuesBanner(),
+
+                  // Fix task queued confirmation
+                  if (_fixTaskId != null)
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0d2818),
+                        border: Border.all(color: const Color(0xFF166534)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.check_circle, color: Color(0xFF4ade80), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Fix task queued — find it in the task list tagged [Health Fix].',
+                            style: const TextStyle(color: Color(0xFF4ade80), fontSize: 13),
+                          ),
+                        ),
+                      ]),
+                    ),
+
+                  // Download banner for research/instructions tasks
+                  if (task != null &&
+                      (task.taskType == 'research' ||
+                          task.taskType == 'deep_research' ||
+                          task.taskType == 'instructions') &&
+                      _liveStatus == 'complete' &&
+                      _exports.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0d1f33),
+                        border: Border.all(color: const Color(0xFF1e4d8c)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.description, color: Color(0xFF7dd3fc), size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            task.taskType == 'instructions'
+                                ? 'Instructions document ready'
+                                : 'Report ready',
+                            style: const TextStyle(
+                                color: Color(0xFF7dd3fc),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13),
+                          ),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.download, size: 16),
+                          label: const Text('Download'),
+                          onPressed: () => launchUrl(Uri.parse(_exports.first.downloadUrl)),
+                        ),
+                      ]),
+                    ),
+
                   // Log
                   Expanded(
                     child: Container(
@@ -200,6 +281,42 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   // Exports
                   if (_exports.isNotEmpty) _buildExports(cs),
                 ]),
+    );
+  }
+
+  Widget _buildFixIssuesBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1a0d2e),
+        border: Border.all(color: const Color(0xFF6d28d9)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Audit complete — grant permission to fix all found issues?',
+            style: TextStyle(color: Color(0xFFc4b5fd), fontWeight: FontWeight.w600, fontSize: 14),
+          ),
+          const SizedBox(height: 10),
+          Row(children: [
+            FilledButton.icon(
+              icon: const Icon(Icons.bolt, size: 16),
+              label: Text(_fixLoading ? 'Creating fix task…' : 'Fix Issues'),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF5b21b6)),
+              onPressed: _fixLoading ? null : _fixIssues,
+            ),
+            if (_fixError != null) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(_fixError!, style: const TextStyle(color: Color(0xFFf87171), fontSize: 12)),
+              ),
+            ],
+          ]),
+        ],
+      ),
     );
   }
 

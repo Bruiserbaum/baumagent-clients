@@ -198,6 +198,50 @@ class ApiToken {
 }
 
 // ---------------------------------------------------------------------------
+// Project
+// ---------------------------------------------------------------------------
+
+class Project {
+  final String id;
+  final String name;
+  final String color;
+  final int position;
+  final DateTime createdAt;
+
+  const Project({
+    required this.id,
+    required this.name,
+    required this.color,
+    required this.position,
+    required this.createdAt,
+  });
+
+  factory Project.fromJson(Map<String, dynamic> j) => Project(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        color: j['color'] as String? ?? '#3b82f6',
+        position: j['position'] as int? ?? 0,
+        createdAt: DateTime.parse(j['created_at'] as String),
+      );
+}
+
+// ---------------------------------------------------------------------------
+// Fix task response
+// ---------------------------------------------------------------------------
+
+class FixTaskResponse {
+  final String taskId;
+  final String repoUrl;
+
+  const FixTaskResponse({required this.taskId, required this.repoUrl});
+
+  factory FixTaskResponse.fromJson(Map<String, dynamic> j) => FixTaskResponse(
+        taskId: j['task_id'] as String,
+        repoUrl: j['repo_url'] as String,
+      );
+}
+
+// ---------------------------------------------------------------------------
 // WebSocket frame
 // ---------------------------------------------------------------------------
 

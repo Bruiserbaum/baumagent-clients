@@ -129,6 +129,8 @@ class ApiService {
     String repoUrl = '',
     String baseBranch = 'main',
     String? projectId,
+    String? targetOs,
+    String? difficulty,
   }) async {
     final url = await _storage.getUrl();
     final token = await _storage.getToken();
@@ -141,6 +143,8 @@ class ApiService {
       ..fields['repo_url'] = repoUrl
       ..fields['base_branch'] = baseBranch;
     if (projectId != null) request.fields['project_id'] = projectId;
+    if (targetOs != null) request.fields['target_os'] = targetOs;
+    if (difficulty != null) request.fields['difficulty'] = difficulty;
 
     final streamed = await request.send();
     final r = await http.Response.fromStream(streamed);
@@ -165,6 +169,21 @@ class ApiService {
   Future<QueueStatus> getQueue() async {
     final data = await _get('api/queue') as Map<String, dynamic>;
     return QueueStatus.fromJson(data);
+  }
+
+  // ── Projects ──────────────────────────────────────────────────────────────
+
+  Future<List<Project>> listProjects() async {
+    final data = await _get('api/projects') as List;
+    return data.map((e) => Project.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  // ── GitNexus ──────────────────────────────────────────────────────────────
+
+  Future<FixTaskResponse> fixHealthScan(String sourceTaskId) async {
+    final data = await _post('api/gitnexus/fix', {'source_task_id': sourceTaskId})
+        as Map<String, dynamic>;
+    return FixTaskResponse.fromJson(data);
   }
 }
 
