@@ -46,7 +46,7 @@ ThemeData _buildTheme(Brightness brightness) {
     colorScheme: cs,
     useMaterial3: true,
     scaffoldBackgroundColor: cs.surface,
-    cardTheme: const CardTheme(elevation: 0),
+    cardTheme: const CardThemeData(elevation: 0),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: cs.surfaceContainerHighest,
       indicatorColor: cs.primaryContainer,
