@@ -24,26 +24,24 @@ public class UpdateService
 
     public async Task<UpdateInfo?> CheckForUpdateAsync()
     {
-        try
-        {
-            var release = await _http.GetFromJsonAsync<GithubRelease>(ApiUrl);
-            if (release is null) return null;
+        var release = await _http.GetFromJsonAsync<GithubRelease>(ApiUrl)
+            ?? throw new InvalidOperationException("No response from GitHub releases API.");
 
-            var tag = release.TagName.TrimStart('v');
-            if (!Version.TryParse(tag, out var latest)) return null;
-            if (latest <= CurrentVersion) return null;
+        var tag = release.TagName.TrimStart('v');
+        if (!Version.TryParse(tag, out var latest))
+            throw new InvalidOperationException($"Could not parse release version '{release.TagName}'.");
 
-            // Find the Windows installer asset
-            var asset = release.Assets.FirstOrDefault(a =>
-                a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
-            if (asset is null) return null;
+        if (latest <= CurrentVersion) return null;
 
-            return new UpdateInfo(tag, release.Body ?? "", asset.BrowserDownloadUrl);
-        }
-        catch
-        {
-            return null;
-        }
+        // Find the Windows installer (.exe) asset
+        var asset = release.Assets.FirstOrDefault(a =>
+            a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+        if (asset is null)
+            throw new InvalidOperationException(
+                $"v{tag} is available but has no Windows installer (.exe). " +
+                "Download it manually from GitHub Releases.");
+
+        return new UpdateInfo(tag, release.Body ?? "", asset.BrowserDownloadUrl);
     }
 
     public async Task DownloadAndInstallAsync(UpdateInfo update, IProgress<int>? progress = null)
