@@ -71,7 +71,7 @@ $bootstrapper = Join-Path $publishDir "WindowsAppRuntimeInstall.exe"
 if (-not (Test-Path $bootstrapper)) {
     Write-Host "`n==> Downloading Windows App Runtime bootstrapper..." -ForegroundColor Cyan
     Invoke-WebRequest `
-        -Uri "https://aka.ms/windowsappruntimeinstall/1.5/x64" `
+        -Uri "https://aka.ms/windowsappruntimeinstall/2.0/x64" `
         -OutFile $bootstrapper
 }
 

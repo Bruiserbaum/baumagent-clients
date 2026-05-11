@@ -31,23 +31,36 @@ jobs:
         working-directory: clients/windows
         run: dotnet restore BaumAgentClient.sln
 
-      - name: Publish self-contained (win-x64)
+      - name: Build self-contained (win-x64)
         working-directory: clients/windows/BaumAgentClient
         run: |
-          dotnet publish BaumAgentClient.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:Version=${{ inputs.version }} `
-            -p:FileVersion=${{ inputs.version }}.0 `
-            -o "${{ github.workspace }}\publish" `
-            -v:normal
+          # dotnet publish silently drops resources.pri and XBF files for WinUI 3 apps.
+          # Use msbuild /t:Build which runs the full Windows App SDK pipeline.
+          $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+              -latest -products * -requires Microsoft.Component.MSBuild `
+              -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+          if (-not $msbuild) { throw "MSBuild not found via vswhere" }
+
+          & $msbuild BaumAgentClient.csproj `
+            /t:Build `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:RuntimeIdentifier=win-x64 `
+            /p:SelfContained=true `
+            /p:Version=${{ inputs.version }} `
+            "/p:FileVersion=${{ inputs.version }}.0" `
+            /v:normal
+
           if ($LASTEXITCODE -ne 0) {
             Write-Host "=== XamlCompiler output.json (if present) ==="
             Get-ChildItem -Recurse -Path obj -Filter output.json -ErrorAction SilentlyContinue |
               ForEach-Object { Write-Host "--- $($_.FullName) ---"; Get-Content $_.FullName }
             exit $LASTEXITCODE
           }
+
+          # Copy full build output (XBF, PRI, DLLs) to workspace publish directory
+          $binDir = "bin\x64\Release\net8.0-windows10.0.22621.0\win-x64"
+          Copy-Item $binDir "${{ github.workspace }}\publish" -Recurse -Force
         shell: pwsh
 
       # Download Windows App Runtime bootstrapper into publish dir so
@@ -55,7 +68,7 @@ jobs:
       - name: Download Windows App Runtime bootstrapper
         run: |
           Invoke-WebRequest `
-            -Uri "https://aka.ms/windowsappruntimeinstall/1.5/x64" `
+            -Uri "https://aka.ms/windowsappruntimeinstall/2.0/x64" `
             -OutFile "${{ github.workspace }}\publish\WindowsAppRuntimeInstall.exe"
         shell: pwsh
 
