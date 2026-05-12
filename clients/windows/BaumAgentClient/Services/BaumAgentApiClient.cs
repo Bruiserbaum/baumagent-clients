@@ -17,14 +17,33 @@ public class BaumAgentApiClient
         PropertyNameCaseInsensitive = true,
     };
 
+    /// <summary>
+    /// Reads the response body and deserialises it as JSON.
+    /// Runs the HTML-sniff check BEFORE calling EnsureSuccessStatusCode so
+    /// that auth-redirect responses (which return 200 OK with an HTML login
+    /// page, or a 302 whose body is HTML) produce a clear, actionable error
+    /// message instead of a cryptic JSON parse failure.
+    /// </summary>
     private static async Task<T> ReadJsonAsync<T>(HttpResponseMessage r)
     {
         var body = await r.Content.ReadAsStringAsync();
+
+        // Auth-redirect / Authentik forward-auth pages arrive as HTML.
+        // Detect this before attempting JSON deserialisation.
         if (body.TrimStart().StartsWith('<'))
             throw new InvalidOperationException(
                 "Server returned an HTML page instead of JSON. " +
-                "The API may be unavailable or your session may have expired. " +
-                "Try re-pairing in Settings if the problem persists.");
+                "Your session or API token may have expired. " +
+                "Go to Settings and use \"Re-pair device\" to reconnect.");
+
+        // Now surface any non-2xx HTTP error with the raw body for context.
+        if (!r.IsSuccessStatusCode)
+        {
+            var snippet = body.Length > 200 ? body[..200] + "…" : body;
+            throw new InvalidOperationException(
+                $"Server error {(int)r.StatusCode}: {snippet}");
+        }
+
         return JsonSerializer.Deserialize<T>(body, JsonOpts)
             ?? throw new InvalidOperationException("Server returned an empty response.");
     }
@@ -59,7 +78,6 @@ public class BaumAgentApiClient
     {
         using var client = UnauthenticatedClient(baseUrl);
         var r = await client.GetAsync("api/health");
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<HealthResponse>(r);
     }
 
@@ -68,7 +86,6 @@ public class BaumAgentApiClient
     public async Task<PairInitiateResponse> InitiatePairingAsync()
     {
         var r = await Http().PostAsync("api/auth/pair/initiate", null);
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<PairInitiateResponse>(r);
     }
 
@@ -88,14 +105,18 @@ public class BaumAgentApiClient
     public async Task<List<ApiToken>> ListTokensAsync()
     {
         var r = await Http().GetAsync("api/auth/tokens");
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<List<ApiToken>>(r);
     }
 
     public async Task RevokeTokenAsync(string tokenId)
     {
         var r = await Http().DeleteAsync($"api/auth/tokens/{tokenId}");
-        r.EnsureSuccessStatusCode();
+        if (!r.IsSuccessStatusCode)
+        {
+            var body = await r.Content.ReadAsStringAsync();
+            var snippet = body.Length > 200 ? body[..200] + "…" : body;
+            throw new InvalidOperationException($"Revoke failed {(int)r.StatusCode}: {snippet}");
+        }
     }
 
     // ── Push ──────────────────────────────────────────────────────────────
@@ -112,14 +133,12 @@ public class BaumAgentApiClient
     public async Task<TaskListResponse> ListTasksAsync(int page = 1, int pageSize = 25)
     {
         var r = await Http().GetAsync($"api/tasks?page={page}&page_size={pageSize}");
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<TaskListResponse>(r);
     }
 
     public async Task<BaumTask> GetTaskAsync(string taskId)
     {
         var r = await Http().GetAsync($"api/tasks/{taskId}");
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<BaumTask>(r);
     }
 
@@ -168,14 +187,12 @@ public class BaumAgentApiClient
         }
 
         var r = await Http().PostAsync("api/tasks", form);
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<BaumTask>(r);
     }
 
     public async Task<BaumTask> RetryTaskAsync(string taskId)
     {
         var r = await Http().PostAsync($"api/tasks/{taskId}/retry", null);
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<BaumTask>(r);
     }
 
@@ -195,14 +212,12 @@ public class BaumAgentApiClient
     {
         var body = JsonContent.Create(new { source_task_id = sourceTaskId });
         var r = await Http().PostAsync("api/gitnexus/fix", body);
-        r.EnsureSuccessStatusCode();
         return (await ReadJsonAsync<FixTaskResponse>(r)).TaskId;
     }
 
     public async Task<List<ExportFile>> ListExportsAsync(string taskId)
     {
         var r = await Http().GetAsync($"api/tasks/{taskId}/exports");
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<List<ExportFile>>(r);
     }
 
@@ -216,44 +231,66 @@ public class BaumAgentApiClient
         return (await r.Content.ReadAsStreamAsync(), filename.Trim('"'));
     }
 
-    // ── Users ─────────────────────────────────────────────────────────────
-
-    public async Task<User> GetMeAsync()
-    {
-        var r = await Http().GetAsync("api/me");
-        r.EnsureSuccessStatusCode();
-        return await ReadJsonAsync<User>(r);
-    }
-
-    // ── Projects ──────────────────────────────────────────────────────────
+    // ── Projects ─────────────────────────────────────────────────────────
 
     public async Task<List<Project>> ListProjectsAsync()
     {
         var r = await Http().GetAsync("api/projects");
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<List<Project>>(r);
     }
 
-    // ── Queue + Models ────────────────────────────────────────────────────
+    // ── Queue ─────────────────────────────────────────────────────────────
 
     public async Task<QueueStatus> GetQueueAsync()
     {
         var r = await Http().GetAsync("api/queue");
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<QueueStatus>(r);
     }
+
+    // ── Settings ──────────────────────────────────────────────────────────
 
     public async Task<PortalSettings> GetSettingsAsync()
     {
         var r = await Http().GetAsync("api/settings");
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<PortalSettings>(r);
     }
 
     public async Task<ModelsResponse> GetModelsAsync()
     {
         var r = await Http().GetAsync("api/models");
-        r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<ModelsResponse>(r);
+    }
+
+    // ── Git Nexus ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns all repositories tracked by the Git Nexus indexing system,
+    /// including their current index status and last-pull status.
+    /// Calls GET /api/gitnexus/repos.
+    /// </summary>
+    public async Task<List<NexusRepo>> ListNexusReposAsync()
+    {
+        var r = await Http().GetAsync("api/gitnexus/repos");
+        return await ReadJsonAsync<List<NexusRepo>>(r);
+    }
+
+    /// <summary>
+    /// Triggers a re-index of a specific repository.
+    /// Calls POST /api/gitnexus/repos/{repoId}/reindex.
+    /// </summary>
+    public async Task TriggerNexusReindexAsync(string repoId)
+    {
+        var r = await Http().PostAsync($"api/gitnexus/repos/{repoId}/reindex", null);
+        r.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Triggers a git pull for a specific repository.
+    /// Calls POST /api/gitnexus/repos/{repoId}/pull.
+    /// </summary>
+    public async Task TriggerNexusPullAsync(string repoId)
+    {
+        var r = await Http().PostAsync($"api/gitnexus/repos/{repoId}/pull", null);
+        r.EnsureSuccessStatusCode();
     }
 }

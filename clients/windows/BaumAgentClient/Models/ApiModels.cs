@@ -142,6 +142,79 @@ public record ModelsResponse(
     [property: JsonPropertyName("ollama")] List<string> Ollama);
 
 // ---------------------------------------------------------------------------
+// Git Nexus
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Represents a single repository tracked by the Git Nexus indexing system.
+/// Maps to the GitNexusRepo schema returned by GET /api/gitnexus/repos.
+/// </summary>
+public record NexusRepo(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("repo_url")] string RepoUrl,
+    [property: JsonPropertyName("default_branch")] string DefaultBranch,
+    [property: JsonPropertyName("index_status")] string IndexStatus,
+    [property: JsonPropertyName("pull_status")] string? PullStatus,
+    [property: JsonPropertyName("last_indexed_at")] DateTime? LastIndexedAt,
+    [property: JsonPropertyName("last_pulled_at")] DateTime? LastPulledAt,
+    [property: JsonPropertyName("file_count")] int? FileCount,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage)
+{
+    /// <summary>Short repo name extracted from the URL for display purposes.</summary>
+    public string ShortName
+    {
+        get
+        {
+            var url = RepoUrl.TrimEnd('/');
+            var slash = url.LastIndexOf('/');
+            return slash >= 0 ? url[(slash + 1)..] : url;
+        }
+    }
+
+    /// <summary>Owner/repo path (last two segments of the URL).</summary>
+    public string OwnerRepo
+    {
+        get
+        {
+            var url = RepoUrl.TrimEnd('/');
+            var parts = url.Split('/');
+            return parts.Length >= 2
+                ? $"{parts[^2]}/{parts[^1]}"
+                : url;
+        }
+    }
+
+    /// <summary>Human-readable index status label.</summary>
+    public string IndexStatusLabel => IndexStatus switch
+    {
+        "indexed"   => "Indexed",
+        "indexing"  => "Indexing…",
+        "pending"   => "Pending",
+        "error"     => "Error",
+        "never"     => "Not indexed",
+        _           => IndexStatus,
+    };
+
+    /// <summary>Human-readable pull status label.</summary>
+    public string PullStatusLabel => PullStatus switch
+    {
+        "ok"        => "Up to date",
+        "pulling"   => "Pulling…",
+        "error"     => "Pull error",
+        null or ""  => "—",
+        _           => PullStatus,
+    };
+
+    public string LastIndexedDisplay => LastIndexedAt is null
+        ? "Never"
+        : LastIndexedAt.Value.ToLocalTime().ToString("MMM d, yyyy HH:mm");
+
+    public string FileCountDisplay => FileCount is null
+        ? "—"
+        : $"{FileCount:N0} files";
+}
+
+// ---------------------------------------------------------------------------
 // WebSocket frames
 // ---------------------------------------------------------------------------
 
@@ -180,34 +253,55 @@ public class ImageAttachment
         _ => $"{Data.Length / (1024.0 * 1024):F1} MB",
     };
 
-    /// <summary>
-    /// Generates a thumbnail BitmapImage from the raw bytes for display
-    /// in the image attachment list. Returns null if decoding fails.
-    /// </summary>
-    public BitmapImage? Thumbnail
-    {
-        get
-        {
-            try
-            {
-                var bmp = new BitmapImage();
-                using var ms = new InMemoryRandomAccessStream();
-                ms.AsStreamForWrite().Write(Data, 0, Data.Length);
-                ms.Seek(0);
-                bmp.SetSource(ms);
-                return bmp;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-    }
-
     public ImageAttachment(string displayName, byte[] data, string mimeType)
     {
         DisplayName = displayName;
         Data = data;
         MimeType = mimeType;
+    }
+
+    public BitmapImage? Thumbnail { get; set; }
+
+    public static async Task<ImageAttachment> FromStorageFileAsync(Windows.Storage.StorageFile file)
+    {
+        var props = await file.GetBasicPropertiesAsync();
+        using var stream = await file.OpenReadAsync();
+        var buffer = new byte[stream.Size];
+        using var reader = new DataReader(stream);
+        await reader.LoadAsync((uint)stream.Size);
+        reader.ReadBytes(buffer);
+
+        var mime = file.ContentType;
+        if (string.IsNullOrEmpty(mime)) mime = "image/png";
+
+        var attachment = new ImageAttachment(file.Name, buffer, mime);
+
+        // Build thumbnail on UI thread
+        var bmp = new BitmapImage();
+        stream.Seek(0);
+        await bmp.SetSourceAsync(stream);
+        attachment.Thumbnail = bmp;
+
+        return attachment;
+    }
+
+    public static async Task<ImageAttachment> FromClipboardBitmapAsync(
+        Windows.Storage.Streams.IRandomAccessStreamReference reference,
+        string suggestedName = "clipboard.png")
+    {
+        using var stream = await reference.OpenReadAsync();
+        var buffer = new byte[stream.Size];
+        using var reader = new DataReader(stream);
+        await reader.LoadAsync((uint)stream.Size);
+        reader.ReadBytes(buffer);
+
+        var attachment = new ImageAttachment(suggestedName, buffer, "image/png");
+
+        var bmp = new BitmapImage();
+        stream.Seek(0);
+        await bmp.SetSourceAsync(stream);
+        attachment.Thumbnail = bmp;
+
+        return attachment;
     }
 }

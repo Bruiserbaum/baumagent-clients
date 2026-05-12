@@ -10,7 +10,7 @@
             <TextBlock Text="Settings" FontSize="24" FontWeight="Bold"
                        Foreground="{StaticResource BaumTextBrush}"/>
 
-            <!-- Account info -->
+            <!-- ── Account info ────────────────────────────────────────── -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Account" FontWeight="SemiBold"
@@ -36,7 +36,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- API tokens -->
+            <!-- ── API tokens ──────────────────────────────────────────── -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel Spacing="10">
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -45,6 +45,7 @@
                         <Button x:Name="RefreshTokensBtn" Content="Refresh"
                                 Click="RefreshTokens_Click" FontSize="12" Padding="8,4"/>
                     </StackPanel>
+
                     <ListView x:Name="TokensList" SelectionMode="None" Background="Transparent">
                         <ListView.ItemTemplate>
                             <DataTemplate>
@@ -72,16 +73,124 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
-                    <TextBlock x:Name="TokensError" Text="" FontSize="12"
-                               Foreground="{StaticResource BaumDangerBrush}"/>
+
+                    <!-- Error banner with Re-pair shortcut -->
+                    <StackPanel x:Name="TokensErrorPanel" Visibility="Collapsed" Spacing="6">
+                        <TextBlock x:Name="TokensError" Text="" FontSize="12"
+                                   Foreground="{StaticResource BaumDangerBrush}"
+                                   TextWrapping="Wrap"/>
+                        <Button x:Name="TokensRePairBtn" Content="Re-pair device to fix this"
+                                Click="RePair_Click" FontSize="12" Padding="8,4"
+                                Foreground="{StaticResource BaumAccentBrush}"
+                                Visibility="Collapsed"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
-            <!-- Danger zone -->
+            <!-- ── Git Nexus — Indexed Repositories ───────────────────── -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Git Nexus — Indexed Repositories"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource BaumTextBrush}"
+                                   VerticalAlignment="Center"/>
+                        <Button x:Name="RefreshNexusBtn" Content="Refresh"
+                                Click="RefreshNexus_Click" FontSize="12" Padding="8,4"/>
+                    </StackPanel>
+
+                    <!-- Status / spinner text -->
+                    <TextBlock x:Name="NexusStatusText" Text="Loading…"
+                               FontSize="12" Foreground="{StaticResource BaumSubtextBrush}"/>
+
+                    <!-- Repo list -->
+                    <ListView x:Name="NexusList" SelectionMode="None"
+                              Background="Transparent" Visibility="Collapsed">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="0,2"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="6" Padding="12,10"
+                                        Background="#141a26" Margin="0,0,0,4">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Repo info -->
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="{Binding OwnerRepo}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource BaumTextBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding DefaultBranch}"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource BaumSubtextBrush}"/>
+                                                <TextBlock Text="·" FontSize="11"
+                                                           Foreground="{StaticResource BaumSubtextBrush}"/>
+                                                <TextBlock Text="{Binding FileCountDisplay}"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource BaumSubtextBrush}"/>
+                                                <TextBlock Text="·" FontSize="11"
+                                                           Foreground="{StaticResource BaumSubtextBrush}"/>
+                                                <TextBlock Text="{Binding LastIndexedDisplay}"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource BaumSubtextBrush}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- Index status badge -->
+                                        <Border Grid.Column="1"
+                                                CornerRadius="4" Padding="7,3"
+                                                Background="{Binding IndexStatusBg}"
+                                                Margin="10,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding IndexStatusLabel}"
+                                                       FontSize="11" FontWeight="Bold"
+                                                       Foreground="{Binding IndexStatusFg}"/>
+                                        </Border>
+
+                                        <!-- Pull status badge -->
+                                        <Border Grid.Column="2"
+                                                CornerRadius="4" Padding="7,3"
+                                                Background="{Binding PullStatusBg}"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding PullStatusLabel}"
+                                                       FontSize="11" FontWeight="Bold"
+                                                       Foreground="{Binding PullStatusFg}"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <!-- Error / empty text -->
+                    <TextBlock x:Name="NexusError" Text="" FontSize="12"
+                               Foreground="{StaticResource BaumDangerBrush}"
+                               TextWrapping="Wrap" Visibility="Collapsed"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ── Danger zone ─────────────────────────────────────────── -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Account" FontWeight="SemiBold"
-                               Foreground="{StaticResource BaumDangerBrush}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <!-- Flame / warning icon -->
+                        <TextBlock Text="⚠" FontSize="14"
+                                   Foreground="{StaticResource BaumDangerBrush}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="Danger Zone" FontWeight="SemiBold"
+                                   Foreground="{StaticResource BaumDangerBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
                         <Button x:Name="RePairBtn" Content="Re-pair device"
                                 Click="RePair_Click"/>
@@ -92,7 +201,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- About + Updates -->
+            <!-- ── About + Updates ────────────────────────────────────── -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel Spacing="12">
                     <TextBlock Text="About" FontWeight="SemiBold"

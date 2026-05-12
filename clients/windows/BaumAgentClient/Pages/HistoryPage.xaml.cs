@@ -28,6 +28,7 @@ public sealed partial class HistoryPage : Page
     {
         RefreshBtn.IsEnabled = false;
         StatusText.Text = "Loading…";
+        StatusText.Foreground = (Brush)App.Current.Resources["BaumSubtextBrush"];
         _allRows = [];
         _activeProjectId = null;
         ClearFilterBtn.Visibility = Visibility.Collapsed;
@@ -74,7 +75,17 @@ public sealed partial class HistoryPage : Page
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"Error: {ex.Message}";
+            // Make auth / session errors obvious so the user knows what to do.
+            bool isAuthIssue = ex.Message.Contains("HTML") ||
+                               ex.Message.Contains("session") ||
+                               ex.Message.Contains("expired") ||
+                               ex.Message.Contains("401") ||
+                               ex.Message.Contains("403");
+
+            StatusText.Foreground = (Brush)App.Current.Resources["BaumDangerBrush"];
+            StatusText.Text = isAuthIssue
+                ? $"Session error — {ex.Message} Go to Settings → Re-pair device."
+                : $"Error: {ex.Message}";
         }
         finally
         {
@@ -196,12 +207,12 @@ internal sealed class HistoryTaskRow(BaumTask task)
 
     private static string TypeDisplay(string t) => t switch
     {
-        "research"           => "RESEARCH",
-        "deep_research"      => "DEEP RESEARCH",
-        "coding"             => "SCRIPT",
-        "structured_document"=> "DOC",
-        "instructions"       => "INSTRUCTIONS",
-        _                    => "GITHUB",
+        "research"            => "RESEARCH",
+        "deep_research"       => "DEEP RESEARCH",
+        "coding"              => "SCRIPT",
+        "structured_document" => "DOC",
+        "instructions"        => "INSTRUCTIONS",
+        _                     => "GITHUB",
     };
 
     private static SolidColorBrush TypeBackground(string t) => t switch
