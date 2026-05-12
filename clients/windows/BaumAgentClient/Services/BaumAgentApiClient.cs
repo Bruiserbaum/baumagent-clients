@@ -123,6 +123,10 @@ public class BaumAgentApiClient
         return await ReadJsonAsync<BaumTask>(r);
     }
 
+    /// <summary>
+    /// Create a new task with optional image attachments, project assignment,
+    /// and delivery mode.
+    /// </summary>
     public async Task<BaumTask> CreateTaskAsync(
         string description,
         string taskType = "research",
@@ -132,7 +136,9 @@ public class BaumAgentApiClient
         string baseBranch = "main",
         string? projectId = null,
         string? targetOs = null,
-        string? difficulty = null)
+        string? difficulty = null,
+        string? deliveryMode = null,
+        List<ImageAttachment>? images = null)
     {
         var form = new MultipartFormDataContent
         {
@@ -146,6 +152,20 @@ public class BaumAgentApiClient
         if (projectId is not null) form.Add(new StringContent(projectId), "project_id");
         if (targetOs is not null) form.Add(new StringContent(targetOs), "target_os");
         if (difficulty is not null) form.Add(new StringContent(difficulty), "difficulty");
+        if (deliveryMode is not null) form.Add(new StringContent(deliveryMode), "delivery_mode");
+
+        // Attach images as multipart file parts
+        if (images is not null)
+        {
+            for (int i = 0; i < images.Count; i++)
+            {
+                var img = images[i];
+                var content = new ByteArrayContent(img.Data);
+                content.Headers.ContentType =
+                    new System.Net.Http.Headers.MediaTypeHeaderValue(img.MimeType);
+                form.Add(content, "images", img.DisplayName);
+            }
+        }
 
         var r = await Http().PostAsync("api/tasks", form);
         r.EnsureSuccessStatusCode();
@@ -223,19 +243,17 @@ public class BaumAgentApiClient
         return await ReadJsonAsync<QueueStatus>(r);
     }
 
-    public async Task<ModelsResponse> GetModelsAsync()
-    {
-        var r = await Http().GetAsync("api/models");
-        r.EnsureSuccessStatusCode();
-        return await ReadJsonAsync<ModelsResponse>(r);
-    }
-
-    // ── Settings ──────────────────────────────────────────────────────────
-
     public async Task<PortalSettings> GetSettingsAsync()
     {
         var r = await Http().GetAsync("api/settings");
         r.EnsureSuccessStatusCode();
         return await ReadJsonAsync<PortalSettings>(r);
+    }
+
+    public async Task<ModelsResponse> GetModelsAsync()
+    {
+        var r = await Http().GetAsync("api/models");
+        r.EnsureSuccessStatusCode();
+        return await ReadJsonAsync<ModelsResponse>(r);
     }
 }

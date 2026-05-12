@@ -36,6 +36,59 @@
                 </StackPanel>
             </Border>
 
+            <!-- Image attachments -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Image attachments" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <TextBlock Text="Paste an image from the clipboard or browse for image files to include with the task."
+                               FontSize="12" Foreground="{StaticResource BaumSubtextBrush}"
+                               TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="PasteImageBtn" Content="📋 Paste image"
+                                Click="PasteImage_Click"/>
+                        <Button x:Name="BrowseImageBtn" Content="📁 Browse…"
+                                Click="BrowseImage_Click"/>
+                    </StackPanel>
+                    <ListView x:Name="ImageList" SelectionMode="None" Background="Transparent"
+                              Visibility="Collapsed">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Padding" Value="0,2"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="4,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Image Source="{Binding Thumbnail}" Width="40" Height="40"
+                                           Stretch="UniformToFill" Margin="0,0,10,0"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding DisplayName}"
+                                               Foreground="{StaticResource BaumTextBrush}"
+                                               FontSize="12" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}"
+                                               Foreground="{StaticResource BaumSubtextBrush}"
+                                               FontSize="11" VerticalAlignment="Center"
+                                               Margin="8,0"/>
+                                    <Button Grid.Column="3" Content="✕"
+                                            Tag="{Binding}" Click="RemoveImage_Click"
+                                            Padding="6,2" FontSize="11"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <TextBlock x:Name="ImageStatus" Text="" FontSize="12"
+                               Foreground="{StaticResource BaumSubtextBrush}"/>
+                </StackPanel>
+            </Border>
+
             <!-- Task type -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel Spacing="8">
@@ -61,6 +114,36 @@
                         <ComboBoxItem Content="claude-opus-4-6" IsSelected="True"/>
                         <ComboBoxItem Content="claude-sonnet-4-6"/>
                         <ComboBoxItem Content="claude-haiku-4-5-20251001"/>
+                    </ComboBox>
+                </StackPanel>
+            </Border>
+
+            <!-- Project selector -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Project" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <TextBlock Text="Assign this task to a project for organisation and tracking."
+                               FontSize="12" Foreground="{StaticResource BaumSubtextBrush}"
+                               TextWrapping="Wrap"/>
+                    <ComboBox x:Name="ProjectBox" HorizontalAlignment="Stretch"
+                              PlaceholderText="No project (default)">
+                    </ComboBox>
+                </StackPanel>
+            </Border>
+
+            <!-- Delivery mode (research output options) -->
+            <Border x:Name="DeliveryOptions" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Delivery mode" FontWeight="SemiBold"
+                               Foreground="{StaticResource BaumTextBrush}"/>
+                    <TextBlock Text="Choose how the research output is delivered."
+                               FontSize="12" Foreground="{StaticResource BaumSubtextBrush}"
+                               TextWrapping="Wrap"/>
+                    <ComboBox x:Name="DeliveryBox" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="Document (.docx)" Tag="docx" IsSelected="True"/>
+                        <ComboBoxItem Content="Markdown (.md)" Tag="markdown"/>
+                        <ComboBoxItem Content="PDF (.pdf)" Tag="pdf"/>
                     </ComboBox>
                 </StackPanel>
             </Border>

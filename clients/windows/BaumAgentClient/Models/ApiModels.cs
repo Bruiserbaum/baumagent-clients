@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Storage.Streams;
 
 namespace BaumAgent.Models;
 
@@ -156,3 +158,56 @@ public record WsDonePayload(
 public record FixTaskResponse(
     [property: JsonPropertyName("task_id")] string TaskId,
     [property: JsonPropertyName("repo_url")] string RepoUrl);
+
+// ---------------------------------------------------------------------------
+// Image attachment (used by TaskCreatePage and BaumAgentApiClient)
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Represents an image attachment for the task creation form.
+/// Holds the raw bytes and provides display helpers for the XAML UI.
+/// </summary>
+public class ImageAttachment
+{
+    public string DisplayName { get; }
+    public byte[] Data { get; }
+    public string MimeType { get; }
+
+    public string SizeDisplay => Data.Length switch
+    {
+        < 1024 => $"{Data.Length} B",
+        < 1024 * 1024 => $"{Data.Length / 1024.0:F1} KB",
+        _ => $"{Data.Length / (1024.0 * 1024):F1} MB",
+    };
+
+    /// <summary>
+    /// Generates a thumbnail BitmapImage from the raw bytes for display
+    /// in the image attachment list. Returns null if decoding fails.
+    /// </summary>
+    public BitmapImage? Thumbnail
+    {
+        get
+        {
+            try
+            {
+                var bmp = new BitmapImage();
+                using var ms = new InMemoryRandomAccessStream();
+                ms.AsStreamForWrite().Write(Data, 0, Data.Length);
+                ms.Seek(0);
+                bmp.SetSource(ms);
+                return bmp;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
+    public ImageAttachment(string displayName, byte[] data, string mimeType)
+    {
+        DisplayName = displayName;
+        Data = data;
+        MimeType = mimeType;
+    }
+}

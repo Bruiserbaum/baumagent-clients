@@ -1,5 +1,6 @@
 using BaumAgent.Models;
 using BaumAgent.Services;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using System.Collections.ObjectModel;
@@ -15,6 +16,7 @@ public sealed partial class TaskListPage : Page
     private int _total;
     private const int PageSize = 25;
     private System.Threading.Timer? _refreshTimer;
+    private bool _isLoading;
 
     public TaskListPage()
     {
@@ -25,8 +27,23 @@ public sealed partial class TaskListPage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         await LoadAsync();
+        // Auto-refresh the full task list (including statuses) every 5 seconds
+        // so running tasks update without manual intervention.
         _refreshTimer = new System.Threading.Timer(
-            async _ => await DispatcherQueue.EnqueueAsync(RefreshQueue),
+            _ =>
+            {
+                // Fire-and-forget on the dispatcher; swallow exceptions to
+                // avoid crashing if the page has already navigated away.
+                try
+                {
+                    DispatcherQueue?.TryEnqueue(async () =>
+                    {
+                        try { await LoadAsync(); }
+                        catch { /* timer refresh is best-effort */ }
+                    });
+                }
+                catch { }
+            },
             null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
     }
 
@@ -38,6 +55,10 @@ public sealed partial class TaskListPage : Page
 
     private async Task LoadAsync()
     {
+        // Guard against overlapping loads (timer + manual refresh).
+        if (_isLoading) return;
+        _isLoading = true;
+
         try
         {
             var (tasksTask, queueTask) = (
@@ -49,9 +70,15 @@ public sealed partial class TaskListPage : Page
             var queue = await queueTask;
             _total = resp.Total;
 
-            _rows.Clear();
-            foreach (var t in resp.Items)
-                _rows.Add(new TaskRow(t));
+            // Only rebuild the list if the data actually changed, to avoid
+            // flickering and losing the user's scroll position.
+            var newRows = resp.Items.Select(t => new TaskRow(t)).ToList();
+            if (!RowsEqual(_rows, newRows))
+            {
+                _rows.Clear();
+                foreach (var r in newRows)
+                    _rows.Add(r);
+            }
 
             QueuedCount.Text = $"Queued: {queue.Queued.Count}";
             RunningCount.Text = $"Running: {queue.Running.Count}";
@@ -59,19 +86,37 @@ public sealed partial class TaskListPage : Page
             PageLabel.Text = $"Page {_page} of {Math.Max(1, (int)Math.Ceiling(_total / (double)PageSize))}";
             PrevPage.IsEnabled = _page > 1;
             NextPage.IsEnabled = _page * PageSize < _total;
+
+            // Clear any previous error indicator
+            RefreshErrorText.Text = "";
+            RefreshErrorText.Visibility = Visibility.Collapsed;
         }
-        catch { /* show error inline in production */ }
+        catch (Exception ex)
+        {
+            // Surface errors so the user knows refresh isn't silently failing
+            RefreshErrorText.Text = $"Refresh failed: {ex.Message}";
+            RefreshErrorText.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
-    private async Task RefreshQueue()
+    /// <summary>
+    /// Compares two row collections by task ID + status to avoid unnecessary UI rebuilds.
+    /// </summary>
+    private static bool RowsEqual(ObservableCollection<TaskRow> existing, List<TaskRow> incoming)
     {
-        try
+        if (existing.Count != incoming.Count) return false;
+        for (int i = 0; i < existing.Count; i++)
         {
-            var queue = await _api.GetQueueAsync();
-            QueuedCount.Text = $"Queued: {queue.Queued.Count}";
-            RunningCount.Text = $"Running: {queue.Running.Count}";
+            if (existing[i].Task.Id != incoming[i].Task.Id ||
+                existing[i].Task.Status != incoming[i].Task.Status ||
+                existing[i].Task.ProgressPercent != incoming[i].Task.ProgressPercent)
+                return false;
         }
-        catch { }
+        return true;
     }
 
     private void TaskList_SelectionChanged(object sender, SelectionChangedEventArgs e)
