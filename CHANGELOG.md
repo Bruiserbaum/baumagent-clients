@@ -4,6 +4,37 @@ All notable changes to the BaumAgent Clients project will be documented in this 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.0] — 2026-07-17
+
+### Added — Linux client
+
+- Native Linux desktop build added to the existing Android Flutter project
+  (`clients/android/baumagent/linux/`) rather than a new app — shares
+  `lib/` (pairing, task list/create/detail, chat, history, settings,
+  WebSocket log streaming) with Android.
+- QR camera pairing (`mobile_scanner`) and voice dictation
+  (`speech_to_text`) have no Linux backend; both are hidden on Linux via
+  `Platform.isLinux` checks. Manual URL + pairing-code entry (already the
+  primary flow) is unaffected.
+- See `clients/android/baumagent/README.md` for Linux build instructions
+  and two build-toolchain workarounds needed on current Flutter
+  stable (3.27.4): a clean-build CMake install bug requiring a manually
+  created `build/native_assets/linux` directory, and a `-Werror` clash
+  between newer clang and a vendored `nlohmann/json` header in
+  `flutter_secure_storage_linux`.
+
+### Known gaps (Linux)
+
+- No push notifications — no Linux desktop push channel exists.
+- Self-update (`update_service.dart`) only looks for `.apk` release
+  assets; it will silently no-op on Linux until a Linux release artifact
+  naming convention is added.
+- `spec/openapi.yaml` (and therefore this client) predates BaumAI's Phase
+  2-6 endpoints (confirm-gated `terminal_exec`, `/api/routines`,
+  `/api/audit`, streaming chat) — core pairing/task/chat still works
+  since those endpoints are unchanged, but the newer capabilities aren't
+  reachable from any of these native clients yet.
+
 ## [1.2.0] — 2025-07-19
 
 ### Fixed — Windows client

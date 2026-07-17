@@ -12,15 +12,19 @@ Native clients for [BaumAgent](https://github.com/Bruiserbaum/BaumAgent) — a s
 │  Push dispatch (APNs / FCM / WNS)               │  │
 └──────────────────────────────────────────────────┼──┘
                                                    │
-            ┌──────────────────────────────────────┘
-            │
-   ┌────────┼────────────────────────────────┐
-   │        │                                │
-   ▼        ▼                                ▼
-macOS     Windows                         Android
-SwiftUI   WinUI 3                         Flutter
-(APNs)    (WNS toast)                     (FCM)
+            ┌──────────────────────────────────────┼──────────────────┐
+            │                                      │                  │
+   ┌────────┼────────────────────────────────┐     │                  │
+   │        │                                │     │                  │
+   ▼        ▼                                ▼     ▼                  ▼
+macOS     Windows                         Android  Linux            (VS Code
+SwiftUI   WinUI 3                         Flutter  Flutter          extension —
+(APNs)    (WNS toast)                     (FCM)    desktop          lives in the
+                                                    (same lib/,      BaumAI repo,
+                                                    no push)         not here)
 ```
+
+Android and Linux are the same Flutter project (`clients/android/baumagent/`) with two native runners — see that directory's own README for what's Linux-specific.
 
 Clients are **thin remotes** — all task execution happens on the BaumAgent server. The clients handle: first-launch pairing, task creation (with voice dictation), live log streaming, push notifications, and export downloads.
 
@@ -40,7 +44,7 @@ baumagent-clients/
 ├── clients/
 │   ├── macos/                    # Swift / SwiftUI
 │   ├── windows/                  # WinUI 3 (Windows App SDK)
-│   └── android/                  # Flutter (Dart)
+│   └── android/                  # Flutter (Dart) — also builds Linux desktop (clients/android/baumagent/linux/)
 └── .github/workflows/
     └── validate-spec.yml         # Spectral lint + AsyncAPI validate + Kiota dry-run
 ```
@@ -60,6 +64,7 @@ baumagent-clients/
 | Shared queue | `TEAM_MODE=true` env var on server | Single flag, no schema migration needed |
 | Windows UI toolkit | WinUI 3 (Windows App SDK 1.5+) | Stable, Fluent design, native WNS and speech APIs |
 | Android toolkit | Flutter | Single codebase for future iOS, strong platform channel story |
+| Linux toolkit | Flutter desktop, same project as Android | Reuses ~95% of the Android `lib/` — pairing, tasks, chat, WebSocket streaming — instead of a separate GTK/Qt app. No push notifications (no Linux desktop push channel) or voice dictation (`speech_to_text` has no Linux backend); QR camera scan falls back to manual code entry. |
 | Pause/resume | Deferred to v2 | RQ does not support cooperative pause without agent-side changes |
 
 ---

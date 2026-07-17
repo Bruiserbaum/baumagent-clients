@@ -1,9 +1,15 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../providers/providers.dart';
 import '../services/api_service.dart';
 import 'shell_screen.dart';
+
+// mobile_scanner has no Linux desktop camera backend — desktop users pair by
+// pasting the code/URL shown in the web UI instead (that path already works
+// unconditionally below; this only gates the camera scanner button/view).
+bool get _scannerSupported => !Platform.isLinux;
 
 class PairingScreen extends ConsumerStatefulWidget {
   const PairingScreen({super.key});
@@ -15,7 +21,7 @@ class PairingScreen extends ConsumerStatefulWidget {
 class _PairingScreenState extends ConsumerState<PairingScreen> {
   final _urlCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController(text: 'Android Device');
+  final _nameCtrl = TextEditingController(text: Platform.isLinux ? 'Linux Device' : 'Android Device');
   bool _urlVerified = false;
   bool _loading = false;
   String? _error;
@@ -90,7 +96,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
     return Scaffold(
       backgroundColor: cs.surface,
       body: SafeArea(
-        child: _showScanner
+        child: _showScanner && _scannerSupported
             ? Stack(children: [
                 MobileScanner(onDetect: _onQrDetected),
                 Positioned(
@@ -132,12 +138,14 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                               child: const Text('Check connection'),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          IconButton.outlined(
-                            icon: const Icon(Icons.qr_code_scanner),
-                            tooltip: 'Scan QR',
-                            onPressed: () => setState(() { _showScanner = true; }),
-                          ),
+                          if (_scannerSupported) ...[
+                            const SizedBox(width: 8),
+                            IconButton.outlined(
+                              icon: const Icon(Icons.qr_code_scanner),
+                              tooltip: 'Scan QR',
+                              onPressed: () => setState(() { _showScanner = true; }),
+                            ),
+                          ],
                         ]),
                         if (_urlVerified)
                           Padding(

@@ -127,13 +127,14 @@ class _TaskCreateScreenState extends ConsumerState<TaskCreateScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Row(children: [
-                    OutlinedButton.icon(
-                      icon: Icon(_listening ? Icons.stop : Icons.mic),
-                      label: Text(_listening ? 'Listening…' : 'Dictate'),
-                      onPressed: _listening ? null : _dictate,
-                    ),
-                  ]),
+                  if (ref.read(voiceServiceProvider).isSupported)
+                    Row(children: [
+                      OutlinedButton.icon(
+                        icon: Icon(_listening ? Icons.stop : Icons.mic),
+                        label: Text(_listening ? 'Listening…' : 'Dictate'),
+                        onPressed: _listening ? null : _dictate,
+                      ),
+                    ]),
                 ],
               ),
             ),
