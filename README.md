@@ -1,5 +1,7 @@
 # BaumAgent Client Suite
 
+> **⚠️ Archived — moved to [BaumAI](https://github.com/Bruiserbaum/BaumAI)** as `clients/{macos,windows,android,spec}/`. Full commit history was merged in, this repo is now read-only. Releases now happen from BaumAI, tagged per-component (`android-v*`, `macos-v*`, `windows-v*`). Everything below describes the state before that merge.
+
 Native clients for [BaumAgent](https://github.com/Bruiserbaum/BaumAgent) — a self-hosted AI task manager running on a homelab Kubernetes cluster.
 
 ```
